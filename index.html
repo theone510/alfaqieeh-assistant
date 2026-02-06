@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مساعد الفقيه | العتبة الحسينية</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#004D40">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="#004D40">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3223/3223363.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+    <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400&family=Noto+Kufi+Arabic:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Kufi Arabic', sans-serif;
+            background-color: #fdfbf7; /* Creamy off-white */
+        }
+        .serif-text {
+            font-family: 'Amiri', serif;
+        }
+        
+        /* Islamic Geometric Pattern Overlay */
+        .bg-pattern {
+            background-image: radial-gradient(#115e59 0.7px, transparent 0.7px), radial-gradient(#115e59 0.7px, #fdfbf7 0.7px);
+            background-size: 24px 24px;
+            background-position: 0 0, 12px 12px;
+            opacity: 0.03;
+        }
+
+        /* Custom Scrollbar - Gold & Teal */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #b4975a; /* Gold */
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #9a8045;
+        }
+        
+        .markdown-body ul {
+            list-style-type: disc;
+            padding-right: 1.5em;
+            margin-bottom: 1em;
+        }
+        .markdown-body ol {
+            list-style-type: decimal;
+            padding-right: 1.5em;
+            margin-bottom: 1em;
+        }
+        .markdown-body blockquote {
+            border-right: 4px solid #b4975a; /* Gold border */
+            padding-right: 1em;
+            color: #115e59;
+            background-color: #f0fdfa;
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 0.25rem;
+        }
+        .markdown-body p {
+            margin-bottom: 0.75em;
+            text-align: justify;
+        }
+        .markdown-body strong {
+            color: #134e4a; /* Deep Teal */
+        }
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@^19.2.4",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
+    "@google/genai": "https://esm.sh/@google/genai@^1.39.0",
+    "lucide-react": "https://esm.sh/lucide-react@^0.563.0",
+    "react/": "https://esm.sh/react@^19.2.4/",
+    "react-markdown": "https://esm.sh/react-markdown@^10.1.0"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+<body>
+    <div id="root"></div>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('sw.js')
+            .then(reg => console.log('SW registered'))
+            .catch(err => console.log('SW failed', err));
+        });
+      }
+    </script>
+    <script type="module" src="./index.tsx"></script>
+<script type="module" src="/index.tsx"></script>
+</body>
+</html>

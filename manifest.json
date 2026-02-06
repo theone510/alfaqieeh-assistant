@@ -1,0 +1,16 @@
+{
+  "name": "مساعد الفقيه | العتبة الحسينية",
+  "short_name": "مساعد الفقيه",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#FDFBF7",
+  "theme_color": "#004D40",
+  "description": "نظام ذكي للمساعدة في استرداد وفهم الفتاوى الشرعية وفقاً لمنهج سماحة السيد السيستاني (دام ظلّه).",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/3223/3223363.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
