@@ -106,60 +106,59 @@ type ChatSession = {
 
 // --- RAG System Types ---
 interface FatwaEntry {
-    title: string;
-    text: string;
-    source: string; // اسم الكتاب
-    section?: string; // القسم أو الباب
-    questionNumber?: string; // رقم المسألة
-    sourceUrl?: string; // رابط المصدر
+    content: string;
+    metadata: {
+        title: string;
+        source: string;
+        section?: string;
+        questionNumber?: string;
+        sourceUrl?: string;
+    },
+    similarity: number;
 }
 
-// قائمة ملفات المصادر الفقهية
-const FATWA_SOURCES = [
-    'الاستفتائات الشرعية - موقع مكتب السيد السيستاني.json',
-    'التعليقة على العروة الوثقى ـ الجزء الاول.json',
-    'الصيام جُنة من النا.json',
-    'الفتاوى الميسّـرة.json',
-    'الفقه للمغتربين.json',
-    'المسائل المنتخبة - (الطبعة الجديدة المنقحة).json',
-    'الميسّر في الحج والعمرة.json',
-    'الوجيز في أحكام العبادات.json',
-    'مناسك الحج وملحقاتها ـ (الطبعة الجديدة 1444 هـ).json',
-    'منهاج الصالحين ـ الجزء الأول (الطبعة المصححة 1445_2 هـ.).json',
-    'منهاج الصالحين ـ الجزء الثالث (الطبعة المصححة 1445 هـ.).json',
-    'منهاج الصالحين ـ الجزء الثاني (الطبعة المصححة 1445 هـ.).json',
-];
+// Search function calling Serverless API
+const searchFatwas = async (query: string): Promise<string> => {
+    try {
+        const response = await fetch('/api/search', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ query }),
+        });
 
-// دالة البحث في الفتاوى
-function searchFatwas(query: string, data: FatwaEntry[], limit: number = 5): FatwaEntry[] {
-    if (!query || !data.length) return [];
-
-    const queryWords = query.toLowerCase().split(/\s+/).filter(w => w.length > 2);
-    if (!queryWords.length) return [];
-
-    const scored = data.map(entry => {
-        const textLower = (entry.title + ' ' + entry.text).toLowerCase();
-        let score = 0;
-
-        for (const word of queryWords) {
-            if (textLower.includes(word)) {
-                score += 1;
-                // Bonus for title match
-                if (entry.title.toLowerCase().includes(word)) {
-                    score += 2;
-                }
-            }
+        if (!response.ok) {
+            console.error("Search API failed");
+            return '';
         }
 
-        return { entry, score };
-    });
+        const { results } = await response.json();
 
-    return scored
-        .filter(s => s.score > 0)
-        .sort((a, b) => b.score - a.score)
-        .slice(0, limit)
-        .map(s => s.entry);
-}
+        if (!results || results.length === 0) return '';
+
+        // Format results for the LLM
+        let context = "فيما يلي فتاوى ومسائل فقهية ذات صلة من مصادر السيد السيستاني (استخدمها للإجابة بدقة):\n\n";
+
+        results.forEach((item: FatwaEntry, index: number) => {
+            const meta = item.metadata;
+            context += `[المصدر ${index + 1}]:\n`;
+            context += `الكتاب: ${meta.source}\n`;
+            if (meta.section) context += `القسم: ${meta.section}\n`;
+            if (meta.title) context += `العنوان: ${meta.title}\n`;
+            if (meta.questionNumber) context += `الرقم: ${meta.questionNumber}\n`;
+            context += `الرابط: ${meta.sourceUrl || 'غير متوفر'}\n`;
+            // Similarity score is available in item.similarity if needed
+            context += `نص الفتوى: ${item.content}\n\n`;
+            context += `-----------------------------------\n`;
+        });
+
+        return context;
+    } catch (error) {
+        console.error("Error searching fatwas:", error);
+        return '';
+    }
+};
 
 // --- Translations ---
 const translations: Record<Language, Record<string, string>> = {
@@ -268,7 +267,6 @@ const translations: Record<Language, Record<string, string>> = {
         selectMode: 'شروع کرنے کے لیے جواب کا طریقہ منتخب کریں:',
         literalMode: 'لفظی موڈ',
         literalModeDesc: 'منظور شدہ ذرائع سے بغیر کسی اضافے یا وضاحت کے فتاویٰ کو حرف بحرف نکالتا ہے۔ مخصوص فتویٰ کی تلاش کے لیے موزوں۔',
-        literalModeTag: 'درست تلاش',
         understandingMode: 'فہم کا موڈ',
         understandingModeDesc: 'عام قواعد اور ملتی جلتی نصوص کی بنیاد پر مسئلے کی وضاحت فراہم کرتا ہے۔ پیچیدہ مسائل کے لیے موزوں۔',
         understandingModeTag: 'تجزیہ اور وضاحت',
@@ -435,10 +433,6 @@ const App = () => {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [language, setLanguage] = useState<Language>('ar');
 
-    // RAG System State
-    const [fatwasData, setFatwasData] = useState<FatwaEntry[]>([]);
-    const [isLoadingData, setIsLoadingData] = useState(true);
-
     // Get translation helper
     const t = (key: string) => translations[language][key] || key;
     const isRTL = rtlLanguages.includes(language);
@@ -524,69 +518,6 @@ const App = () => {
                 console.error("Failed to load sessions", e);
             }
         }
-    }, []);
-
-    // Load Fatwa data from JSON files (RAG System)
-    useEffect(() => {
-        const loadFatwasData = async () => {
-            setIsLoadingData(true);
-            const allFatwas: FatwaEntry[] = [];
-
-            for (const filename of FATWA_SOURCES) {
-                try {
-                    const response = await fetch(`/sistani/${encodeURIComponent(filename)}`);
-                    if (response.ok) {
-                        const data = await response.json();
-                        const sourceName = filename.replace('.json', '');
-
-                        if (Array.isArray(data)) {
-                            for (const item of data) {
-                                // Handle different JSON structures
-                                const title = item.title || item.Title || '';
-                                const text = item.text || item.Text || item.Field2 || item.content || '';
-
-                                if (title || text) {
-                                    // Extract question number from text (مسألة X)
-                                    const questionMatch = text.match(/\(مسألة\s*(\d+)\)/);
-                                    const questionNumber = questionMatch ? `مسألة ${questionMatch[1]}` : undefined;
-
-                                    // Extract sistani.org URL
-                                    let sourceUrl: string | undefined = undefined;
-                                    if (item.Title_URL && item.Title_URL.includes('sistani.org')) {
-                                        sourceUrl = item.Title_URL;
-                                    } else if (item.Field2 && typeof item.Field2 === 'string') {
-                                        const urlMatch = item.Field2.match(/sistani\.org\/(\d+)/);
-                                        if (urlMatch) {
-                                            sourceUrl = `https://www.sistani.org/${urlMatch[1]}`;
-                                        }
-                                    }
-
-                                    // Get section from Field1 or parent title
-                                    const section = item.Field1 || item.section || undefined;
-
-                                    allFatwas.push({
-                                        title: title,
-                                        text: text,
-                                        source: sourceName,
-                                        section: section,
-                                        questionNumber: questionNumber,
-                                        sourceUrl: sourceUrl
-                                    });
-                                }
-                            }
-                        }
-                    }
-                } catch (error) {
-                    console.error(`Failed to load ${filename}:`, error);
-                }
-            }
-
-            setFatwasData(allFatwas);
-            setIsLoadingData(false);
-            console.log(`تم تحميل ${allFatwas.length} مسألة فقهية من المصادر`);
-        };
-
-        loadFatwasData();
     }, []);
 
     // Save sessions to local storage whenever they change
@@ -727,24 +658,9 @@ ${t('welcomeAsk')}`
                 questionInArabic = translateToArabicResponse.text || userMessageText;
             }
 
+
             // Step 3: Search local fatwas data (RAG)
-            const relevantFatwas = searchFatwas(questionInArabic, fatwasData, 5);
-
-            // Build context from relevant fatwas with enhanced citations
-            let ragContext = '';
-            if (relevantFatwas.length > 0) {
-                ragContext = `\n\n### النصوص المرجعية من مصادر السيد السيستاني (دام ظله):\n\n`;
-                relevantFatwas.forEach((fatwa, index) => {
-                    // Build detailed citation
-                    let citation = `📚 **${fatwa.source}**`;
-                    if (fatwa.section) citation += ` - ${fatwa.section}`;
-                    if (fatwa.questionNumber) citation += ` (${fatwa.questionNumber})`;
-                    if (fatwa.sourceUrl) citation += `\n🔗 ${fatwa.sourceUrl}`;
-
-                    ragContext += `**[${index + 1}] ${fatwa.title}**\n${citation}\n\n${fatwa.text.substring(0, 1500)}${fatwa.text.length > 1500 ? '...' : ''}\n\n---\n`;
-                });
-                ragContext += `\n**تعليمات:** اعتمد بشكل أساسي على النصوص المرجعية أعلاه في إجابتك. إذا وجدت الإجابة في هذه النصوص، فاستشهد بها مع ذكر اسم الكتاب ورقم المسألة إن وجد. إذا كان المصدر من موقع sistani.org، اذكر رابط الاستفتاء.\n`;
-            }
+            const ragContext = await searchFatwas(questionInArabic);
 
             // Step 4: Get the fiqh answer in Arabic with RAG context
             const promptWithContext = `[${mode}] ${questionInArabic}${ragContext}`;
