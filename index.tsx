@@ -1159,24 +1159,24 @@ ${t('welcomeAsk')}`
                 </header>
 
                 {/* Messages List */}
-                <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-6">
+                <div className="flex-1 overflow-y-auto p-2 sm:p-4 md:p-8 space-y-4 md:space-y-6">
                     {messages.map((msg, idx) => (
-                        <div key={idx} className={`flex gap-4 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
+                        <div key={idx} className={`flex gap-2 sm:gap-4 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
 
                             {/* Avatar */}
-                            <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 shadow-md border-2 ${msg.role === 'user'
+                            <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center shrink-0 shadow-md border-2 ${msg.role === 'user'
                                 ? 'bg-[#004D40] border-[#00695C] text-white'
                                 : 'bg-white border-[#C5A059] text-[#004D40]'
                                 }`}>
-                                {msg.role === 'user' ? <User className="w-5 h-5" /> : <Scroll className="w-5 h-5" />}
+                                {msg.role === 'user' ? <User className="w-4 h-4 sm:w-5 sm:h-5" /> : <Scroll className="w-4 h-4 sm:w-5 sm:h-5" />}
                             </div>
 
                             {/* Bubble */}
-                            <div className={`max-w-[90%] md:max-w-[75%] rounded-2xl px-6 py-4 shadow-sm ${msg.role === 'user'
+                            <div className={`max-w-[85%] sm:max-w-[90%] md:max-w-[75%] rounded-2xl px-3 sm:px-5 md:px-6 py-3 sm:py-4 shadow-sm ${msg.role === 'user'
                                 ? `bg-[#004D40] text-white ${isRTL ? 'rounded-tr-none' : 'rounded-tl-none'}`
                                 : `bg-white ${isRTL ? 'border-r-4' : 'border-l-4'} border-[#C5A059] text-slate-800 ${isRTL ? 'rounded-tl-none' : 'rounded-tr-none'}`
                                 }`}>
-                                <div className={`markdown-body text-sm md:text-base leading-loose ${isRTL ? 'text-justify' : 'text-left'} ${msg.role === 'user' ? 'text-white' : ''}`}>
+                                <div className={`markdown-body text-sm sm:text-base leading-relaxed sm:leading-loose ${isRTL ? 'text-right' : 'text-left'} ${msg.role === 'user' ? 'text-white' : ''}`}>
                                     <ReactMarkdown>{msg.text}</ReactMarkdown>
                                 </div>
                             </div>
