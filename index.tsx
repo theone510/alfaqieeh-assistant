@@ -178,7 +178,7 @@ const translations: Record<Language, Record<string, string>> = {
         history: 'السجل السابق',
         settings: 'إعدادات الإجابة',
         installApp: 'تثبيت التطبيق',
-        placeholder: 'اكتب مسألتك الفقهية هنا أو استخدم الميكروفون...',
+        placeholder: 'اكتب سؤالك الفقهي هنا...',
         searching: 'جاري البحث في المصادر المعتمدة...',
         footer: 'وحدة تنمية المقتنيات - شعبة نظم المعلومات وادارة المعارف',
         footer2: 'قسم الشؤون الفكرية والثقافية - العتبة الحسينية المقدسة',
@@ -211,7 +211,7 @@ const translations: Record<Language, Record<string, string>> = {
         history: 'Previous History',
         settings: 'Response Settings',
         installApp: 'Install App',
-        placeholder: 'Type your jurisprudential question here or use the microphone...',
+        placeholder: 'Type your question here...',
         searching: 'Searching approved sources...',
         footer: 'Acquisitions Development Unit - Information Systems and Knowledge Management Division',
         footer2: 'Intellectual and Cultural Affairs Department - Holy Husseini Shrine',
@@ -244,7 +244,7 @@ const translations: Record<Language, Record<string, string>> = {
         history: 'تاریخچه قبلی',
         settings: 'تنظیمات پاسخ',
         installApp: 'نصب برنامه',
-        placeholder: 'سوال فقهی خود را اینجا بنویسید یا از میکروفون استفاده کنید...',
+        placeholder: 'سوال فقهی خود را بنویسید...',
         searching: 'در حال جستجو در منابع معتبر...',
         footer: 'واحد توسعه مجموعه‌ها - بخش سیستم‌های اطلاعات و مدیریت دانش',
         footer2: 'بخش امور فکری و فرهنگی - آستان مقدس حسینی',
@@ -276,7 +276,7 @@ const translations: Record<Language, Record<string, string>> = {
         history: 'پچھلی تاریخ',
         settings: 'جواب کی ترتیبات',
         installApp: 'ایپ انسٹال کریں',
-        placeholder: 'اپنا فقہی سوال یہاں لکھیں یا مائیکروفون استعمال کریں...',
+        placeholder: 'اپنا فقہی سوال لکھیں...',
         searching: 'منظور شدہ ذرائع میں تلاش ہو رہی ہے...',
         footer: 'ایکوزیشنز ڈیولپمنٹ یونٹ - انفارمیشن سسٹمز اینڈ نالج مینجمنٹ ڈویژن',
         footer2: 'فکری اور ثقافتی امور کا شعبہ - روضہ مقدسہ امام حسین',
@@ -309,7 +309,7 @@ const translations: Record<Language, Record<string, string>> = {
         history: 'Önceki Geçmiş',
         settings: 'Yanıt Ayarları',
         installApp: 'Uygulamayı Yükle',
-        placeholder: 'Fıkhi sorunuzu buraya yazın veya mikrofonu kullanın...',
+        placeholder: 'Sorunuzu buraya yazın...',
         searching: 'Onaylı kaynaklarda aranıyor...',
         footer: 'Edinim Geliştirme Birimi - Bilgi Sistemleri ve Bilgi Yönetimi Bölümü',
         footer2: 'Fikri ve Kültürel İşler Departmanı - Kutsal Hüseyni Türbesi',
@@ -342,7 +342,7 @@ const translations: Record<Language, Record<string, string>> = {
         history: 'Historique',
         settings: 'Paramètres de Réponse',
         installApp: 'Installer l\'Application',
-        placeholder: 'Écrivez votre question juridique ici ou utilisez le microphone...',
+        placeholder: 'Écrivez votre question ici...',
         searching: 'Recherche dans les sources approuvées...',
         footer: 'Unité de Développement des Acquisitions - Division des Systèmes d\'Information',
         footer2: 'Département des Affaires Intellectuelles et Culturelles - Sanctuaire Sacré Husseini',
@@ -375,7 +375,7 @@ const translations: Record<Language, Record<string, string>> = {
         history: 'पिछला इतिहास',
         settings: 'प्रतिक्रिया सेटिंग्स',
         installApp: 'ऐप इंस्टॉल करें',
-        placeholder: 'अपना न्यायशास्त्रीय प्रश्न यहाँ लिखें या माइक्रोफ़ोन का उपयोग करें...',
+        placeholder: 'अपना प्रश्न यहाँ लिखें...',
         searching: 'स्वीकृत स्रोतों में खोज रहा है...',
         footer: 'अधिग्रहण विकास इकाई - सूचना प्रणाली और ज्ञान प्रबंधन प्रभाग',
         footer2: 'बौद्धिक और सांस्कृतिक मामलों का विभाग - पवित्र हुसैनी मंदिर',
@@ -1132,7 +1132,7 @@ ${t('welcomeAsk')}`
                                 onChange={(e) => setInput(e.target.value)}
                                 onKeyDown={handleKeyDown}
                                 placeholder={t('placeholder')}
-                                className={`w-full bg-transparent border-none focus:ring-0 resize-none max-h-32 min-h-[50px] py-3 px-2 text-slate-800 placeholder-slate-400 font-medium ${isRTL ? 'text-right' : 'text-left'}`}
+                                className={`w-full bg-transparent border-none focus:ring-0 resize-none max-h-32 min-h-[50px] py-3 px-2 text-slate-800 placeholder-slate-400 font-medium text-sm sm:text-base ${isRTL ? 'text-right' : 'text-left'}`}
                                 rows={1}
                                 style={{ height: 'auto', minHeight: '50px' }}
                             />
