@@ -540,6 +540,20 @@ ${t('welcomeAsk')}`
                 }
             ]);
         }
+        // Update welcome message when language changes (only if it's the only message)
+        if (hasStarted && messages.length === 1 && messages[0].role === 'model') {
+            const modeText = mode === 'MODE_LITERAL' ? t('literalMode') : t('understandingMode');
+            setMessages([
+                {
+                    role: 'model',
+                    text: `**${t('welcomeMessage')}**
+                    
+${t('welcomeIntro')}
+${t('welcomeMode')} **${modeText}**. ${t('welcomeChangeMode')}
+${t('welcomeAsk')}`
+                }
+            ]);
+        }
     }, [hasStarted, mode, language]);
 
     // Auto-scroll to bottom
