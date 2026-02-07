@@ -773,7 +773,7 @@ ${t('welcomeAsk')}`
     // --- Intro Screen Component ---
     if (!hasStarted) {
         return (
-            <div dir={isRTL ? 'rtl' : 'ltr'} className={`flex min-h-screen ${COLORS.bgLight} font-sans relative overflow-hidden flex-col items-center justify-center p-4 ${language === 'ur' ? 'urdu-text' : ''}`}>
+            <div dir={isRTL ? 'rtl' : 'ltr'} className={`flex min-h-screen ${COLORS.bgLight} font-sans relative overflow-hidden flex-col items-center justify-center p-4 ${language === 'ur' ? 'urdu-text' : ''} ${language === 'fa' ? 'persian-text' : ''}`}>
                 {/* Background Pattern */}
                 <div className="absolute inset-0 pointer-events-none bg-pattern z-0 opacity-10" />
 
@@ -900,7 +900,7 @@ ${t('welcomeAsk')}`
 
     // --- Main App Interface ---
     return (
-        <div dir={isRTL ? 'rtl' : 'ltr'} className={`flex h-screen ${COLORS.bgLight} text-slate-800 font-sans overflow-hidden ${language === 'ur' ? 'urdu-text' : ''}`}>
+        <div dir={isRTL ? 'rtl' : 'ltr'} className={`flex h-screen ${COLORS.bgLight} text-slate-800 font-sans overflow-hidden ${language === 'ur' ? 'urdu-text' : ''} ${language === 'fa' ? 'persian-text' : ''}`}>
 
             {/* Background Pattern */}
             <div className="absolute inset-0 pointer-events-none bg-pattern z-0" />
