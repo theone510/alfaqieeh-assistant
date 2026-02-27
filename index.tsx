@@ -648,7 +648,7 @@ ${t('welcomeAsk')}`
 
         try {
             const genAI = new GoogleGenerativeAI(apiKey);
-            const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash', systemInstruction: SYSTEM_INSTRUCTION });
+            const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash', systemInstruction: SYSTEM_INSTRUCTION });
 
             // Step 1: Detect if the language is Arabic using Regex OR if the UI language is already Arabic
             const isTextArabic = /[\u0600-\u06FF]/.test(userMessageText);
