@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { BookOpen, MessageCircle, Info, Send, Eraser, User, Bot, AlertCircle, Settings, FileText, Scroll, ArrowRight, CheckCircle2, History, Plus, Trash2, MessageSquare, Mic, StopCircle, Download, Menu, X, Globe } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 
@@ -647,7 +647,8 @@ ${t('welcomeAsk')}`
         setSessions(newSessionsList);
 
         try {
-            const ai = new GoogleGenAI({ apiKey });
+            const genAI = new GoogleGenerativeAI(apiKey);
+            const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash', systemInstruction: SYSTEM_INSTRUCTION });
 
             // Step 1: Detect if the language is Arabic using Regex OR if the UI language is already Arabic
             const isTextArabic = /[\u0600-\u06FF]/.test(userMessageText);
@@ -660,14 +661,13 @@ ${t('welcomeAsk')}`
 
             // Step 2: If not Arabic, translate the question to Arabic
             if (!isArabic) {
-                const translateToArabicResponse = await ai.models.generateContent({
-                    model: 'gemini-1.5-flash',
+                const translateToArabicResponse = await model.generateContent({
                     contents: [{
                         role: 'user',
                         parts: [{ text: `Translate the following text to Arabic. Provide ONLY the translation, nothing else:\n\n"${userMessageText}"` }]
                     }]
                 });
-                questionInArabic = translateToArabicResponse.text || userMessageText;
+                questionInArabic = translateToArabicResponse.response.text() || userMessageText;
             }
 
 
@@ -677,8 +677,7 @@ ${t('welcomeAsk')}`
             // Step 4: Get the fiqh answer in Arabic with RAG context
             const promptWithContext = `[${mode}] ${questionInArabic}${ragContext}`;
 
-            const response = await ai.models.generateContent({
-                model: 'gemini-1.5-flash',
+            const response = await model.generateContent({
                 contents: [
                     ...messages.filter(m => m.role === 'model' || isArabic).map(m => ({
                         role: m.role,
@@ -689,13 +688,12 @@ ${t('welcomeAsk')}`
                         parts: [{ text: promptWithContext }]
                     }
                 ],
-                config: {
-                    systemInstruction: SYSTEM_INSTRUCTION,
+                generationConfig: {
                     temperature: 0.3,
                 }
             });
 
-            let text = response.text || "عذراً، لم أتمكن من استخراج إجابة.";
+            let text = response.response.text() || "عذراً، لم أتمكن من استخراج إجابة.";
 
             // Step 4: If the original question was not in Arabic, translate the answer back to the user's language
             if (!isArabic) {
@@ -707,15 +705,14 @@ ${t('welcomeAsk')}`
                     'it': 'Italian', 'nl': 'Dutch', 'pl': 'Polish', 'sv': 'Swedish'
                 };
                 const targetLangName = langNames[detectedLang] || detectedLang;
-                const translateBackResponse = await ai.models.generateContent({
-                    model: 'gemini-1.5-flash',
+                const translateBackResponse = await model.generateContent({
                     contents: [{
                         role: 'user',
                         parts: [{ text: `Translate the following Islamic jurisprudence (fiqh) answer from Arabic to ${targetLangName}. Maintain the formal scholarly tone and preserve any Arabic religious terms with their transliteration where appropriate. Provide ONLY the translation:\n\n${text}` }]
                     }],
-                    config: { temperature: 0.2 }
+                    generationConfig: { temperature: 0.2 }
                 });
-                text = translateBackResponse.text || text;
+                text = translateBackResponse.response.text() || text;
             }
 
             const modelMessage: Message = { role: 'model', text };
