@@ -44,7 +44,7 @@ const SYSTEM_INSTRUCTION = `
 ### ثالثاً: خوارزمية المعالجة الداخلية (Reasoning Chain)
 1. **الخطوة 1 (تصنيف القصد):** هل السؤال فقهي؟ (نعم: استمر | لا: اعتذر بصرامة).
 2. **الخطوة 2 (تحديد الوضع):** هل اختار المستخدم (الوضع الأول) أم (الوضع الثاني)؟
-3. **الخطوة 3 (الاسترجاع):** البحث في قاعدة البيانات النصية لمكتب السيد السيستاني (من خلال معلوماتك المدربة).
+3. **الخطوة 3 (الاسترجاع):** الاعتماد الحصري والكامل على (النصوص المزودة لك في سياق البحث) وعدم استخدام معلوماتك المدربة مسبقاً إطلاقاً.
 4. **الخطوة 4 (التكييف الفقهي):** استخلاص الحكم المختصر (النتيجة النهائية للحكم).
 5. **الخطوة 5 (التوليف):** صب النتيجة في القالب المحدد أدناه دون أي زيادة أو نقصان.
 
@@ -62,7 +62,7 @@ const SYSTEM_INSTRUCTION = `
 > [أدرج النص هنا بدقة 100%]
 >
 > 📚 **المصدر:**
-> [اسم الكتاب – القسم – رقم المسألة]
+> [انسخ (التوثيق الكامل) المرفق في أسماء المصادر المزودة لك بدقة، وإذا لم يتوفر انسخ الكتاب والرقم]
 >
 > **والله هو العالم بحقائق الأمور.**
 
@@ -76,7 +76,7 @@ const SYSTEM_INSTRUCTION = `
 > [شرح مستمد مباشرة من القواعد الفقهية للسيد السيستاني]
 >
 > 📚 **النصوص الداعمة:**
-> [ذكر الفتاوى أو النصوص التي استندت إليها في هذا الفهم]
+> [اذكر الفتاوى والنصوص الحرفية واقتبس (التوثيق الكامل) لكل نص من النصوص المزودة لك فقط]
 >
 > **تنبيه:** هذا الجواب يمثل فهماً مستنداً إلى النصوص، وليس نقلاً حرفياً أو فتوى مباشرة.
 > **والله هو العالم بحقائق الأمور.**
@@ -108,11 +108,16 @@ type ChatSession = {
 interface FatwaEntry {
     content: string;
     metadata: {
-        title: string;
-        source: string;
+        title?: string;
+        source?: string;
         section?: string;
         questionNumber?: string;
         sourceUrl?: string;
+        book?: string;
+        hierarchy?: string;
+        full_citation?: string;
+        masalah_number?: string;
+        url?: string;
     },
     similarity: number;
 }
@@ -143,11 +148,15 @@ const searchFatwas = async (query: string): Promise<string> => {
         results.forEach((item: FatwaEntry, index: number) => {
             const meta = item.metadata;
             context += `[المصدر ${index + 1}]:\n`;
-            context += `الكتاب: ${meta.source}\n`;
-            if (meta.section) context += `القسم: ${meta.section}\n`;
-            if (meta.title) context += `العنوان: ${meta.title}\n`;
-            if (meta.questionNumber) context += `الرقم: ${meta.questionNumber}\n`;
-            context += `الرابط: ${meta.sourceUrl || 'غير متوفر'}\n`;
+            if (meta.full_citation) {
+                context += `التوثيق الكامل: ${meta.full_citation}\n`;
+            } else {
+                context += `الكتاب: ${meta.book || meta.source || 'غير معروف'}\n`;
+                if (meta.hierarchy || meta.section) context += `القسم: ${meta.hierarchy || meta.section}\n`;
+                if (meta.title) context += `العنوان: ${meta.title}\n`;
+                if (meta.masalah_number || meta.questionNumber) context += `الرقم: ${meta.masalah_number || meta.questionNumber}\n`;
+            }
+            context += `الرابط: ${meta.url || meta.sourceUrl || 'غير متوفر'}\n`;
             // Similarity score is available in item.similarity if needed
             context += `نص الفتوى: ${item.content}\n\n`;
             context += `-----------------------------------\n`;
@@ -675,7 +684,12 @@ ${t('welcomeAsk')}`
             const ragContext = await searchFatwas(questionInArabic);
 
             // Step 4: Get the fiqh answer in Arabic with RAG context
-            const promptWithContext = `[${mode}] ${questionInArabic}${ragContext}`;
+            let promptWithContext = '';
+            if (mode === 'MODE_LITERAL') {
+                promptWithContext = `[هام جداً: أنت في "الوضع الحرفي". يُمنع التلخيص أو الاستنتاج الذاتي. اعتمد حصراً على النص أدناه. انسخ النص حرفياً وانسخ التوثيق الكامل للمصدر المرفق في السياق بدقة متناهية دون اختلاق أرقام مسألة أو دمج مصادر].\n\nالسؤال: ${questionInArabic}\n\nالسياق:\n${ragContext}`;
+            } else {
+                promptWithContext = `[هام: أنت في "وضع الفهم". قدم حكماً مختصراً ثم شرحاً مستنداً للنصوص المرفقة أدناه، واقتبس التوثيق الكامل للمصدر المرفق في السياق دون اختلاق أرقام أو التفاف].\n\nالسؤال: ${questionInArabic}\n\nالسياق:\n${ragContext}`;
+            }
 
             const response = await model.generateContent({
                 contents: [
