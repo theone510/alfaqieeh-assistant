@@ -8,7 +8,7 @@ const geminiKey = process.env.GEMINI_API_KEY || '';
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 const genAI = new GoogleGenerativeAI(geminiKey);
-const model = genAI.getGenerativeModel({ model: "models/gemini-embedding-001" });
+const model = genAI.getGenerativeModel({ model: "models/text-embedding-004" });
 
 export default async function handler(req, res) {
     if (req.method !== 'POST') {
@@ -36,13 +36,13 @@ export default async function handler(req, res) {
 
         if (error) {
             console.error('Supabase search error:', error);
-            throw error;
+            return res.status(500).json({ error: 'Supabase RPC error', details: error.message });
         }
 
         return res.status(200).json({ results: data });
 
     } catch (error) {
         console.error('Search API Error:', error);
-        return res.status(500).json({ error: 'Internal Server Error' });
+        return res.status(500).json({ error: 'Internal Server Error', details: error.message });
     }
 }
