@@ -598,12 +598,17 @@ ${t('welcomeAsk')}`
     };
 
     const handleSend = async () => {
-        if (!input.trim() || isLoading) return;
+        console.log("handleSend called", { input: input.trim(), isLoading });
+        if (!input.trim() || isLoading) {
+            console.log("handleSend returning early", { input: input.trim(), isLoading });
+            return;
+        }
 
         const userMessageText = input.trim();
         const newMessage: Message = { role: 'user', text: userMessageText };
         setInput('');
         setIsLoading(true);
+        console.log("handleSend proceeding", { userMessageText });
 
         // Update Messages State
         const updatedMessages = [...messages, newMessage];
@@ -644,30 +649,23 @@ ${t('welcomeAsk')}`
         try {
             const ai = new GoogleGenAI({ apiKey });
 
-            // Step 1: Detect the language of the user's question
-            const langDetectResponse = await ai.models.generateContent({
-                model: 'gemini-3-flash-preview',
-                contents: [{
-                    role: 'user',
-                    parts: [{ text: `Detect the language of the following text and respond with ONLY the ISO 639-1 language code (e.g., "ar" for Arabic, "en" for English, "fa" for Persian, "ur" for Urdu, "fr" for French, etc.). Just the code, nothing else:\n\n"${userMessageText}"` }]
-                }],
-                config: { temperature: 0 }
-            });
-
-            const detectedLang = (langDetectResponse.text || 'ar').trim().toLowerCase().substring(0, 2);
-            const isArabic = detectedLang === 'ar';
+            // Step 1: Detect if the language is Arabic using Regex OR if the UI language is already Arabic
+            const isTextArabic = /[\u0600-\u06FF]/.test(userMessageText);
+            const isUiArabic = language === 'ar';
+            // We consider the input "Arabic" if either the text is Arabic or the user chose Arabic UI
+            const isArabic = isTextArabic || isUiArabic;
+            const detectedLang = isArabic ? 'ar' : language; // Default to UI language if not Arabic
 
             let questionInArabic = userMessageText;
 
             // Step 2: If not Arabic, translate the question to Arabic
             if (!isArabic) {
                 const translateToArabicResponse = await ai.models.generateContent({
-                    model: 'gemini-3-flash-preview',
+                    model: 'gemini-1.5-flash',
                     contents: [{
                         role: 'user',
                         parts: [{ text: `Translate the following text to Arabic. Provide ONLY the translation, nothing else:\n\n"${userMessageText}"` }]
-                    }],
-                    config: { temperature: 0.1 }
+                    }]
                 });
                 questionInArabic = translateToArabicResponse.text || userMessageText;
             }
@@ -680,7 +678,7 @@ ${t('welcomeAsk')}`
             const promptWithContext = `[${mode}] ${questionInArabic}${ragContext}`;
 
             const response = await ai.models.generateContent({
-                model: 'gemini-3-flash-preview',
+                model: 'gemini-1.5-flash',
                 contents: [
                     ...messages.filter(m => m.role === 'model' || isArabic).map(m => ({
                         role: m.role,
@@ -709,9 +707,8 @@ ${t('welcomeAsk')}`
                     'it': 'Italian', 'nl': 'Dutch', 'pl': 'Polish', 'sv': 'Swedish'
                 };
                 const targetLangName = langNames[detectedLang] || detectedLang;
-
                 const translateBackResponse = await ai.models.generateContent({
-                    model: 'gemini-3-flash-preview',
+                    model: 'gemini-1.5-flash',
                     contents: [{
                         role: 'user',
                         parts: [{ text: `Translate the following Islamic jurisprudence (fiqh) answer from Arabic to ${targetLangName}. Maintain the formal scholarly tone and preserve any Arabic religious terms with their transliteration where appropriate. Provide ONLY the translation:\n\n${text}` }]
