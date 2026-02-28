@@ -584,7 +584,7 @@ const App = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [mode, setMode] = useState<Mode>('MODE_LITERAL');
     const [hasStarted, setHasStarted] = useState(false);
-    const [apiKey, setApiKey] = useState(import.meta.env.VITE_GEMINI_API_KEY || 'AIzaSyANNI724KGgBxwdYVlknEeUXFpYKQrJqw0');
+    const [apiKey, setApiKey] = useState(import.meta.env.VITE_GEMINI_API_KEY || '');
     const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [language, setLanguage] = useState<Language>('ar');
