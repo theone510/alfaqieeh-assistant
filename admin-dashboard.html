@@ -191,13 +191,81 @@
             background: rgba(197, 160, 89, 0.3);
             border-radius: 3px;
         }
+
+        .loading-spinner {
+            border: 3px solid rgba(255, 255, 255, 0.1);
+            border-top: 3px solid #C5A059;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
     </style>
 </head>
 
 <body class="bg-gradient-animate">
     <div id="dashboard-root"></div>
 
+    <!-- Firebase SDK via CDN -->
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+
     <script>
+        // Firebase config — MUST match the .env values used in the main app
+        // These are injected at build time for the main app, but for this standalone HTML
+        // we read them from a global config or hardcode them.
+        // The admin dashboard will try to read config from window.__FIREBASE_CONFIG__ or use defaults.
+        var FIREBASE_CONFIG = window.__FIREBASE_CONFIG__ || {
+            apiKey: "AIzaSyBQlMbMIsTnUzbt0pmg0QoJSuPAIB1ItR8",
+            authDomain: "alfaqieeh-assistant.firebaseapp.com",
+            projectId: "alfaqieeh-assistant",
+            storageBucket: "alfaqieeh-assistant.firebasestorage.app",
+            messagingSenderId: "477902605585",
+            appId: "1:477902605585:web:704aaa2552405da213d0b0"
+        };
+
+        // Initialize Firebase
+        var firebaseApp = firebase.initializeApp(FIREBASE_CONFIG);
+        var db = firebase.firestore();
+
+        // Helper to load a Firestore collection
+        function loadCollection(name) {
+            return db.collection(name).get().then(function (snap) {
+                return snap.docs.map(function (d) { return d.data(); });
+            }).catch(function (e) {
+                console.error('Error loading ' + name, e);
+                return [];
+            });
+        }
+
+        // Helper to load cache as object
+        function loadCacheCollection() {
+            return db.collection('answerCache').get().then(function (snap) {
+                var result = {};
+                snap.docs.forEach(function (d) { result[d.id] = d.data(); });
+                return result;
+            }).catch(function (e) {
+                console.error('Error loading answerCache', e);
+                return {};
+            });
+        }
+
+        // Delete all docs in a collection
+        function clearCollection(name) {
+            return db.collection(name).get().then(function (snap) {
+                var batch = db.batch();
+                snap.docs.forEach(function (d) { batch.delete(d.ref); });
+                return batch.commit();
+            });
+        }
+
         const h = React.createElement;
         const { useState, useEffect, useMemo } = React;
 
@@ -232,6 +300,7 @@
 
         function Dashboard() {
             const [isAuth, setIsAuth] = useState(false);
+            const [isLoading, setIsLoading] = useState(true);
             const [logs, setLogs] = useState([]);
             const [users, setUsers] = useState([]);
             const [chatSessions, setChatSessions] = useState([]);
@@ -248,17 +317,30 @@
                 } else { setIsAuth(true); }
             }, []);
 
-            // Load data
+            // Load data from Firebase
             useEffect(function () {
                 function load() {
-                    try { setLogs(JSON.parse(localStorage.getItem('token_usage_log') || '[]')); } catch (e) { setLogs([]); }
-                    try { setUsers(JSON.parse(localStorage.getItem('faqih_users') || '[]')); } catch (e) { setUsers([]); }
-                    try { setChatSessions(JSON.parse(localStorage.getItem('faqih_sessions') || '[]')); } catch (e) { setChatSessions([]); }
-                    try { setFeedback(JSON.parse(localStorage.getItem('faqih_feedback') || '[]')); } catch (e) { setFeedback([]); }
-                    try { setCacheData(JSON.parse(localStorage.getItem('fiqh_answer_cache') || '{}')); } catch (e) { setCacheData({}); }
+                    setIsLoading(true);
+                    Promise.all([
+                        loadCollection('tokenLogs'),
+                        loadCollection('users'),
+                        loadCollection('sessions'),
+                        loadCollection('feedback'),
+                        loadCacheCollection()
+                    ]).then(function (results) {
+                        setLogs(results[0]);
+                        setUsers(results[1]);
+                        setChatSessions(results[2]);
+                        setFeedback(results[3]);
+                        setCacheData(results[4]);
+                        setIsLoading(false);
+                    }).catch(function (e) {
+                        console.error('Error loading data from Firebase', e);
+                        setIsLoading(false);
+                    });
                 }
                 load();
-                var interval = setInterval(load, 5000);
+                var interval = setInterval(load, 15000); // Refresh every 15s (less frequent than localStorage)
                 return function () { clearInterval(interval); };
             }, []);
 
@@ -304,11 +386,17 @@
             }
 
             function handleReset() {
-                localStorage.removeItem('token_usage_log');
-                localStorage.removeItem('fiqh_answer_cache');
-                localStorage.removeItem('faqih_feedback');
-                setLogs([]); setCacheData({}); setFeedback([]);
-                setShowResetModal(false);
+                Promise.all([
+                    clearCollection('tokenLogs'),
+                    clearCollection('answerCache'),
+                    clearCollection('feedback')
+                ]).then(function () {
+                    setLogs([]); setCacheData({}); setFeedback([]);
+                    setShowResetModal(false);
+                }).catch(function (e) {
+                    console.error('Error resetting data', e);
+                    setShowResetModal(false);
+                });
             }
 
             function handleLogout() {
@@ -317,6 +405,16 @@
             }
 
             if (!isAuth) return null;
+
+            // Loading state
+            if (isLoading && logs.length === 0) {
+                return h('div', { className: 'min-h-screen flex items-center justify-center' },
+                    h('div', { className: 'text-center' },
+                        h('div', { className: 'loading-spinner mb-4' }),
+                        h('p', { className: 'text-white/50 text-sm' }, 'جاري تحميل البيانات من Firebase...')
+                    )
+                );
+            }
 
             var totalTokens = stats.totalInput + stats.totalOutput;
             var inputPct = totalTokens > 0 ? (stats.totalInput / totalTokens * 100) : 0;
@@ -341,7 +439,7 @@
                         h('div', { className: 'w-12 h-12 rounded-xl bg-gradient-to-br from-[#C5A059] to-[#a8863e] flex items-center justify-center flex-shrink-0', dangerouslySetInnerHTML: { __html: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0a0e1a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="M9 12l2 2 4-4"/></svg>' } }),
                         h('div', null,
                             h('h1', { className: 'text-lg md:text-xl font-bold text-white' }, 'لوحة تحكم المسؤول'),
-                            h('p', { className: 'text-white/40 text-xs md:text-sm' }, 'مساعد الفقيه — إدارة المستخدمين والتوكنات')
+                            h('p', { className: 'text-white/40 text-xs md:text-sm' }, 'مساعد الفقيه — إدارة المستخدمين والتوكنات (Firebase)')
                         )
                     ),
                     h('div', { className: 'flex items-center gap-3' },
@@ -563,7 +661,7 @@
                     h('div', { className: 'glass-card rounded-2xl overflow-hidden' },
                         h('div', { className: 'p-5 border-b border-white/5 flex items-center justify-between' },
                             h('h3', { className: 'text-sm font-bold text-white/80' }, 'الأسئلة المخزنة (' + cacheStats.totalCached + ')'),
-                            cacheStats.totalCached > 0 && h('button', { onClick: function () { localStorage.removeItem('fiqh_answer_cache'); setCacheData({}); }, className: 'text-xs btn-danger px-3 py-1.5 rounded-lg tab-btn' }, 'حذف الكاش')
+                            cacheStats.totalCached > 0 && h('button', { onClick: function () { clearCollection('answerCache').then(function () { setCacheData({}); }); }, className: 'text-xs btn-danger px-3 py-1.5 rounded-lg tab-btn' }, 'حذف الكاش')
                         ),
                         Object.keys(cacheData).length === 0
                             ? h('div', { className: 'p-8 text-center text-white/30 text-sm' }, h('div', { className: 'text-3xl mb-3' }, '⚡'), 'الكاش فارغ.')

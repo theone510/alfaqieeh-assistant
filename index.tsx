@@ -3,6 +3,13 @@ import { createRoot } from 'react-dom/client';
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { BookOpen, MessageCircle, Info, Send, Eraser, User, Bot, AlertCircle, Settings, FileText, Scroll, ArrowRight, CheckCircle2, History, Plus, Trash2, MessageSquare, Mic, StopCircle, Download, Menu, X, Globe, Copy, ThumbsUp, ThumbsDown, LogOut, Phone, Lock, Briefcase, UserPlus, LogIn } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import {
+    getUsers, getUserByPhone, addUser as addUserToDb,
+    getSessions as getSessionsFromDb, saveSession as saveSessionToDb, deleteSessionFromDb,
+    getFeedback, saveFeedback, deleteFeedbackByFilter,
+    addTokenLog,
+    getCacheEntry as getCacheEntryFromDb, saveCacheEntry as saveCacheEntryToDb, updateCacheHitCount,
+} from './firebaseService';
 
 // --- System Instruction (DSE Payload) ---
 const SYSTEM_INSTRUCTION = `
@@ -232,14 +239,12 @@ const logTokenUsage = (response: any, sessionId: string, type: string, userId?: 
             inputTokens: usage.promptTokenCount || 0,
             outputTokens: usage.candidatesTokenCount || 0,
             totalTokens: usage.totalTokenCount || 0,
-            type, // 'translation_to_ar' | 'fiqh_answer' | 'translation_back'
+            type,
             userId: userId || '',
             timestamp: Date.now(),
         };
 
-        const existing = JSON.parse(localStorage.getItem('token_usage_log') || '[]');
-        existing.push(entry);
-        localStorage.setItem('token_usage_log', JSON.stringify(existing));
+        addTokenLog(entry);
     } catch (e) {
         console.error('Token logging error:', e);
     }
@@ -262,18 +267,12 @@ const getCacheKey = (question: string, mode: string): string => {
     return `${mode}::${normalizeQuestion(question)}`;
 };
 
-const checkCache = (question: string, mode: string): { answer: string; cachedAt: number } | null => {
+const checkCacheAsync = async (question: string, mode: string): Promise<{ answer: string; cachedAt: number; inputTokens?: number; outputTokens?: number; hitCount?: number } | null> => {
     try {
-        const cache = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}');
         const key = getCacheKey(question, mode);
-        const entry = cache[key];
+        const entry = await getCacheEntryFromDb(key);
         if (entry && (Date.now() - entry.cachedAt) < CACHE_MAX_AGE) {
             return entry;
-        }
-        // Clean expired entry
-        if (entry) {
-            delete cache[key];
-            localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
         }
         return null;
     } catch {
@@ -281,11 +280,10 @@ const checkCache = (question: string, mode: string): { answer: string; cachedAt:
     }
 };
 
-const saveToCache = (question: string, mode: string, answer: string, inputTokens: number, outputTokens: number) => {
+const saveToCacheAsync = async (question: string, mode: string, answer: string, inputTokens: number, outputTokens: number) => {
     try {
-        const cache = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}');
         const key = getCacheKey(question, mode);
-        cache[key] = {
+        await saveCacheEntryToDb(key, {
             answer,
             question: question.substring(0, 100),
             mode,
@@ -293,8 +291,7 @@ const saveToCache = (question: string, mode: string, answer: string, inputTokens
             inputTokens,
             outputTokens,
             hitCount: 0,
-        };
-        localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
+        });
     } catch (e) {
         console.error('Cache save error:', e);
     }
@@ -302,11 +299,7 @@ const saveToCache = (question: string, mode: string, answer: string, inputTokens
 
 const logCacheHit = (sessionId: string, inputTokensSaved: number, outputTokensSaved: number) => {
     try {
-        // Update hit count in cache
-        const cache = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}');
-        // Log cache hit to token usage log as savings
-        const existing = JSON.parse(localStorage.getItem('token_usage_log') || '[]');
-        existing.push({
+        addTokenLog({
             id: crypto.randomUUID(),
             sessionId,
             model: MODEL_NAME,
@@ -318,7 +311,6 @@ const logCacheHit = (sessionId: string, inputTokensSaved: number, outputTokensSa
             outputTokensSaved: outputTokensSaved,
             timestamp: Date.now(),
         });
-        localStorage.setItem('token_usage_log', JSON.stringify(existing));
     } catch (e) {
         console.error('Cache hit log error:', e);
     }
@@ -624,28 +616,27 @@ const App = () => {
         }
     }, []);
 
-    // Load feedback map for current session
+    // Load feedback map for current session from Firebase
     useEffect(() => {
         if (currentSessionId) {
-            try {
-                const allFeedback: FeedbackEntry[] = JSON.parse(localStorage.getItem('faqih_feedback') || '[]');
+            getFeedback(currentSessionId).then(allFeedback => {
                 const sessionFeedback: Record<string, 'like' | 'dislike'> = {};
-                allFeedback.filter(f => f.sessionId === currentSessionId).forEach(f => {
+                allFeedback.forEach(f => {
                     sessionFeedback[`${f.question}::${f.answer.substring(0, 50)}`] = f.feedback;
                 });
                 setFeedbackMap(sessionFeedback);
-            } catch { setFeedbackMap({}); }
+            }).catch(() => setFeedbackMap({}));
         }
     }, [currentSessionId]);
 
-    const handleRegister = () => {
+    const handleRegister = async () => {
         setAuthError('');
         if (!authPhone.trim() || !authPassword.trim() || !authName.trim() || !authJob.trim()) {
             setAuthError('يرجى ملء جميع الحقول');
             return;
         }
-        const users: UserProfile[] = JSON.parse(localStorage.getItem('faqih_users') || '[]');
-        if (users.find(u => u.phone === authPhone.trim())) {
+        const existingUser = await getUserByPhone(authPhone.trim());
+        if (existingUser) {
             setAuthError('رقم الهاتف مسجل مسبقاً. قم بتسجيل الدخول.');
             return;
         }
@@ -657,22 +648,20 @@ const App = () => {
             job: authJob.trim(),
             createdAt: Date.now(),
         };
-        users.push(newUser);
-        localStorage.setItem('faqih_users', JSON.stringify(users));
+        await addUserToDb(newUser);
         setCurrentUser(newUser);
         sessionStorage.setItem('faqih_current_user', JSON.stringify(newUser));
         setAuthPhone(''); setAuthPassword(''); setAuthName(''); setAuthJob(''); setAuthError('');
     };
 
-    const handleLogin = () => {
+    const handleLogin = async () => {
         setAuthError('');
         if (!authPhone.trim() || !authPassword.trim()) {
             setAuthError('يرجى إدخال رقم الهاتف وكلمة السر');
             return;
         }
-        const users: UserProfile[] = JSON.parse(localStorage.getItem('faqih_users') || '[]');
-        const user = users.find(u => u.phone === authPhone.trim() && u.password === authPassword.trim());
-        if (!user) {
+        const user = await getUserByPhone(authPhone.trim());
+        if (!user || user.password !== authPassword.trim()) {
             setAuthError('رقم الهاتف أو كلمة السر غير صحيحة');
             return;
         }
@@ -689,7 +678,7 @@ const App = () => {
         setCurrentSessionId(null);
     };
 
-    const handleFeedback = (msgIdx: number, type: 'like' | 'dislike') => {
+    const handleFeedback = async (msgIdx: number, type: 'like' | 'dislike') => {
         if (!currentUser || !currentSessionId) return;
         // Find the question (previous user message)
         let question = '';
@@ -700,17 +689,15 @@ const App = () => {
         const key = `${question}::${answer.substring(0, 50)}`;
 
         // Toggle: if same feedback, remove it
-        const currentFeedback = feedbackMap[key];
-        const allFeedback: FeedbackEntry[] = JSON.parse(localStorage.getItem('faqih_feedback') || '[]');
+        const currentFeedbackVal = feedbackMap[key];
 
-        if (currentFeedback === type) {
-            // Remove feedback
-            const updated = allFeedback.filter(f => !(f.sessionId === currentSessionId && f.question === question && f.answer.substring(0, 50) === answer.substring(0, 50)));
-            localStorage.setItem('faqih_feedback', JSON.stringify(updated));
+        if (currentFeedbackVal === type) {
+            // Remove feedback from Firebase
+            await deleteFeedbackByFilter(currentSessionId, question, answer.substring(0, 50));
             setFeedbackMap(prev => { const n = { ...prev }; delete n[key]; return n; });
         } else {
-            // Remove old feedback for same Q&A if exists
-            const filtered = allFeedback.filter(f => !(f.sessionId === currentSessionId && f.question === question && f.answer.substring(0, 50) === answer.substring(0, 50)));
+            // Remove old feedback for same Q&A if exists, then add new
+            await deleteFeedbackByFilter(currentSessionId, question, answer.substring(0, 50));
             const entry: FeedbackEntry = {
                 id: crypto.randomUUID(),
                 userId: currentUser.id,
@@ -722,8 +709,7 @@ const App = () => {
                 feedback: type,
                 timestamp: Date.now(),
             };
-            filtered.push(entry);
-            localStorage.setItem('faqih_feedback', JSON.stringify(filtered));
+            await saveFeedback(entry);
             setFeedbackMap(prev => ({ ...prev, [key]: type }));
         }
     };
@@ -805,23 +791,14 @@ const App = () => {
         }
     };
 
-    // Load sessions from local storage on mount
+    // Load sessions from Firebase on mount
     useEffect(() => {
-        const savedSessions = localStorage.getItem('faqih_sessions');
-        if (savedSessions) {
-            try {
-                const parsed = JSON.parse(savedSessions);
-                setSessions(parsed);
-            } catch (e) {
-                console.error("Failed to load sessions", e);
+        getSessionsFromDb(currentUser?.id).then(loadedSessions => {
+            if (loadedSessions.length > 0) {
+                setSessions(loadedSessions);
             }
-        }
-    }, []);
-
-    // Save sessions to local storage whenever they change
-    useEffect(() => {
-        localStorage.setItem('faqih_sessions', JSON.stringify(sessions));
-    }, [sessions]);
+        }).catch(e => console.error('Failed to load sessions from Firebase', e));
+    }, [currentUser]);
 
     // Initial Welcome Message Logic - Only when starting fresh in a session
     useEffect(() => {
@@ -876,8 +853,9 @@ ${t('welcomeAsk')}`
         setIsSidebarOpen(false); // Close sidebar on mobile
     };
 
-    const deleteSession = (e: React.MouseEvent, id: string) => {
+    const deleteSession = async (e: React.MouseEvent, id: string) => {
         e.stopPropagation();
+        await deleteSessionFromDb(id);
         const updated = sessions.filter(s => s.id !== id);
         setSessions(updated);
         if (currentSessionId === id) {
@@ -930,17 +908,19 @@ ${t('welcomeAsk')}`
                 userId: currentUser?.id,
             };
             newSessionsList = [newSession, ...newSessionsList];
+            saveSessionToDb(newSession);
         } else {
             // Update existing session
             newSessionsList = newSessionsList.map(s =>
                 s.id === sessionId
-                    ? { ...s, messages: updatedMessages, date: Date.now() } // Update date to bump to top if we sorted by date
+                    ? { ...s, messages: updatedMessages, date: Date.now() }
                     : s
             );
             // Optional: Move active session to top
             const activeSession = newSessionsList.find(s => s.id === sessionId);
             if (activeSession) {
                 newSessionsList = [activeSession, ...newSessionsList.filter(s => s.id !== sessionId)];
+                saveSessionToDb(activeSession);
             }
         }
         setSessions(newSessionsList);
@@ -972,7 +952,7 @@ ${t('welcomeAsk')}`
 
 
             // --- CACHE CHECK ---
-            const cachedAnswer = checkCache(questionInArabic, mode);
+            const cachedAnswer = await checkCacheAsync(questionInArabic, mode);
             let text: string;
             let wasFromCache = false;
 
@@ -982,13 +962,10 @@ ${t('welcomeAsk')}`
                 text = cachedAnswer.answer;
                 wasFromCache = true;
                 // Log the tokens saved
-                const cacheEntry = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}');
                 const cKey = getCacheKey(questionInArabic, mode);
-                if (cacheEntry[cKey]) {
-                    cacheEntry[cKey].hitCount = (cacheEntry[cKey].hitCount || 0) + 1;
-                    localStorage.setItem(CACHE_KEY, JSON.stringify(cacheEntry));
-                    logCacheHit(sessionId!, cacheEntry[cKey].inputTokens || 0, cacheEntry[cKey].outputTokens || 0);
-                }
+                const newHitCount = (cachedAnswer.hitCount || 0) + 1;
+                updateCacheHitCount(cKey, newHitCount);
+                logCacheHit(sessionId!, cachedAnswer.inputTokens || 0, cachedAnswer.outputTokens || 0);
             } else {
                 // Cache MISS — proceed with normal flow
                 console.log('❌ Cache MISS for:', questionInArabic.substring(0, 50));
@@ -1058,7 +1035,7 @@ ${t('welcomeAsk')}`
 
                 // Save to cache for future use
                 const usage = response?.response?.usageMetadata;
-                saveToCache(questionInArabic, mode, text, usage?.promptTokenCount || 0, usage?.candidatesTokenCount || 0);
+                saveToCacheAsync(questionInArabic, mode, text, usage?.promptTokenCount || 0, usage?.candidatesTokenCount || 0);
             }
 
             // Step 5: If the original question was not in Arabic, translate the answer back to the user's language
@@ -1088,12 +1065,17 @@ ${t('welcomeAsk')}`
             const finalMessages = [...updatedMessages, modelMessage];
             setMessages(finalMessages);
 
-            // Update session storage with AI response
-            setSessions(prev => prev.map(s =>
-                s.id === sessionId
-                    ? { ...s, messages: finalMessages }
-                    : s
-            ));
+            // Update session in state and Firebase
+            setSessions(prev => {
+                const updated = prev.map(s =>
+                    s.id === sessionId
+                        ? { ...s, messages: finalMessages }
+                        : s
+                );
+                const updatedSession = updated.find(s => s.id === sessionId);
+                if (updatedSession) saveSessionToDb(updatedSession);
+                return updated;
+            });
 
         } catch (error) {
             console.error(error);
