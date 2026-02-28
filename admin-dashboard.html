@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لوحة تحكم المسؤول | مساعد الفقيه</title>
+    <meta name="theme-color" content="#0a0e1a">
+    <link rel="icon" type="image/png" href="icon-512.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800&family=Tajawal:wght@300;400;500;700;800&display=swap"
+        rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Cairo', 'Tajawal', sans-serif;
+            background: #0a0e1a;
+            min-height: 100vh;
+            color: #fff;
+        }
+
+        .bg-gradient-animate {
+            background: linear-gradient(135deg, #0a0e1a 0%, #0d1525 25%, #0f1a2e 50%, #0a1628 75%, #0a0e1a 100%);
+            background-size: 400% 400%;
+            animation: gradientShift 15s ease infinite;
+        }
+
+        @keyframes gradientShift {
+
+            0%,
+            100% {
+                background-position: 0% 50%
+            }
+
+            50% {
+                background-position: 100% 50%
+            }
+        }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            transition: all 0.3s ease;
+        }
+
+        .stat-card:hover {
+            background: rgba(255, 255, 255, 0.07);
+            border-color: rgba(197, 160, 89, 0.3);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+        }
+
+        .table-row {
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            transition: background 0.2s ease;
+        }
+
+        .table-row:hover {
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .animate-in {
+            animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        .btn-danger {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #f87171;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .btn-danger:hover {
+            background: rgba(239, 68, 68, 0.2);
+        }
+
+        .btn-gold {
+            background: linear-gradient(135deg, #C5A059, #d4b06a);
+            color: #0a0e1a;
+            font-weight: 700;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .btn-gold:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 15px rgba(197, 160, 89, 0.3);
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 10px;
+            border-radius: 9999px;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+
+        .progress-bar {
+            height: 6px;
+            border-radius: 3px;
+            background: rgba(255, 255, 255, 0.06);
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.5s ease;
+        }
+
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(4px);
+            z-index: 50;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-card {
+            background: #0f1a2e;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 1rem;
+            padding: 2rem;
+            max-width: 400px;
+            width: 90%;
+        }
+
+        .cost-highlight {
+            background: linear-gradient(135deg, rgba(197, 160, 89, 0.1), rgba(197, 160, 89, 0.05));
+            border: 1px solid rgba(197, 160, 89, 0.2);
+        }
+
+        .chat-bubble-user {
+            background: rgba(0, 77, 64, 0.3);
+            border: 1px solid rgba(0, 77, 64, 0.4);
+            border-radius: 12px 12px 4px 12px;
+        }
+
+        .chat-bubble-model {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(197, 160, 89, 0.2);
+            border-radius: 12px 12px 12px 4px;
+        }
+
+        .tab-btn {
+            cursor: pointer;
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(197, 160, 89, 0.3);
+            border-radius: 3px;
+        }
+    </style>
+</head>
+
+<body class="bg-gradient-animate">
+    <div id="dashboard-root"></div>
+
+    <script>
+        const h = React.createElement;
+        const { useState, useEffect, useMemo } = React;
+
+        const MODEL_PRICING = {
+            'gemini-2.5-flash': { input: 0.30, output: 2.50, label: 'Gemini 2.5 Flash' },
+            'gemini-2.5-pro': { input: 1.25, output: 10.00, label: 'Gemini 2.5 Pro' },
+            'gemini-2.0-flash': { input: 0.10, output: 0.40, label: 'Gemini 2.0 Flash' },
+            'gemini-3-flash-preview': { input: 0.30, output: 2.50, label: 'Gemini 3 Flash Preview' },
+        };
+
+        const TYPE_LABELS = {
+            'translation_to_ar': 'ترجمة → عربي',
+            'fiqh_answer': 'إجابة فقهية',
+            'translation_back': 'ترجمة ← الرد',
+            'cache_hit': 'من الكاش ✨',
+        };
+
+        const TYPE_COLORS = {
+            'translation_to_ar': { bg: 'rgba(59,130,246,0.15)', text: '#60a5fa', border: 'rgba(59,130,246,0.3)' },
+            'fiqh_answer': { bg: 'rgba(34,197,94,0.15)', text: '#4ade80', border: 'rgba(34,197,94,0.3)' },
+            'translation_back': { bg: 'rgba(168,85,247,0.15)', text: '#c084fc', border: 'rgba(168,85,247,0.3)' },
+            'cache_hit': { bg: 'rgba(234,179,8,0.15)', text: '#facc15', border: 'rgba(234,179,8,0.3)' },
+        };
+
+        const formatNumber = (n) => (n || 0).toLocaleString('en-US');
+        const formatCost = (cost) => '$' + cost.toFixed(4);
+        const formatDate = (ts) => new Date(ts).toLocaleDateString('ar-IQ', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+        const calcCost = (inputTokens, outputTokens, model) => {
+            const pricing = MODEL_PRICING[model] || MODEL_PRICING['gemini-2.5-flash'];
+            return (inputTokens / 1000000) * pricing.input + (outputTokens / 1000000) * pricing.output;
+        };
+
+        function Dashboard() {
+            const [isAuth, setIsAuth] = useState(false);
+            const [logs, setLogs] = useState([]);
+            const [users, setUsers] = useState([]);
+            const [chatSessions, setChatSessions] = useState([]);
+            const [feedback, setFeedback] = useState([]);
+            const [cacheData, setCacheData] = useState({});
+            const [showResetModal, setShowResetModal] = useState(false);
+            const [activeTab, setActiveTab] = useState('overview');
+            const [selectedUserId, setSelectedUserId] = useState(null);
+
+            // Auth
+            useEffect(function () {
+                if (sessionStorage.getItem('admin_auth') !== 'authenticated') {
+                    window.location.href = '/admin.html';
+                } else { setIsAuth(true); }
+            }, []);
+
+            // Load data
+            useEffect(function () {
+                function load() {
+                    try { setLogs(JSON.parse(localStorage.getItem('token_usage_log') || '[]')); } catch (e) { setLogs([]); }
+                    try { setUsers(JSON.parse(localStorage.getItem('faqih_users') || '[]')); } catch (e) { setUsers([]); }
+                    try { setChatSessions(JSON.parse(localStorage.getItem('faqih_sessions') || '[]')); } catch (e) { setChatSessions([]); }
+                    try { setFeedback(JSON.parse(localStorage.getItem('faqih_feedback') || '[]')); } catch (e) { setFeedback([]); }
+                    try { setCacheData(JSON.parse(localStorage.getItem('fiqh_answer_cache') || '{}')); } catch (e) { setCacheData({}); }
+                }
+                load();
+                var interval = setInterval(load, 5000);
+                return function () { clearInterval(interval); };
+            }, []);
+
+            // Stats
+            var stats = useMemo(function () {
+                var totalInput = logs.reduce(function (s, l) { return s + (l.inputTokens || 0); }, 0);
+                var totalOutput = logs.reduce(function (s, l) { return s + (l.outputTokens || 0); }, 0);
+                var totalCost = logs.reduce(function (s, l) { return s + calcCost(l.inputTokens || 0, l.outputTokens || 0, l.model); }, 0);
+                var sessionSet = {};
+                logs.forEach(function (l) { sessionSet[l.sessionId] = true; });
+                var uniqueSessions = Object.keys(sessionSet);
+                var byType = {};
+                logs.forEach(function (l) {
+                    if (!byType[l.type]) byType[l.type] = { input: 0, output: 0, count: 0 };
+                    byType[l.type].input += l.inputTokens || 0;
+                    byType[l.type].output += l.outputTokens || 0;
+                    byType[l.type].count++;
+                });
+                var dislikeCount = feedback.filter(function (f) { return f.feedback === 'dislike'; }).length;
+                var likeCount = feedback.filter(function (f) { return f.feedback === 'like'; }).length;
+                return { totalInput: totalInput, totalOutput: totalOutput, totalCost: totalCost, uniqueSessions: uniqueSessions, byType: byType, totalRequests: logs.length, dislikeCount: dislikeCount, likeCount: likeCount };
+            }, [logs, feedback]);
+
+            // Cache stats
+            var cacheStats = useMemo(function () {
+                var entries = Object.values(cacheData);
+                var totalCached = entries.length;
+                var totalHits = entries.reduce(function (s, e) { return s + (e.hitCount || 0); }, 0);
+                var cacheLogs = logs.filter(function (l) { return l.type === 'cache_hit'; });
+                var inputSaved = cacheLogs.reduce(function (s, l) { return s + (l.inputTokensSaved || 0); }, 0);
+                var outputSaved = cacheLogs.reduce(function (s, l) { return s + (l.outputTokensSaved || 0); }, 0);
+                var costSaved = calcCost(inputSaved, outputSaved, 'gemini-2.5-flash');
+                return { totalCached: totalCached, totalHits: totalHits, inputSaved: inputSaved, outputSaved: outputSaved, costSaved: costSaved };
+            }, [cacheData, logs]);
+
+            function getUserStats(userId) {
+                var userLogs = logs.filter(function (l) { return l.userId === userId; });
+                var userSessions = chatSessions.filter(function (s) { return s.userId === userId; });
+                var input = userLogs.reduce(function (s, l) { return s + (l.inputTokens || 0); }, 0);
+                var output = userLogs.reduce(function (s, l) { return s + (l.outputTokens || 0); }, 0);
+                var cost = userLogs.reduce(function (s, l) { return s + calcCost(l.inputTokens || 0, l.outputTokens || 0, l.model); }, 0);
+                return { input: input, output: output, cost: cost, sessions: userSessions.length, requests: userLogs.length };
+            }
+
+            function handleReset() {
+                localStorage.removeItem('token_usage_log');
+                localStorage.removeItem('fiqh_answer_cache');
+                localStorage.removeItem('faqih_feedback');
+                setLogs([]); setCacheData({}); setFeedback([]);
+                setShowResetModal(false);
+            }
+
+            function handleLogout() {
+                sessionStorage.removeItem('admin_auth');
+                window.location.href = '/admin.html';
+            }
+
+            if (!isAuth) return null;
+
+            var totalTokens = stats.totalInput + stats.totalOutput;
+            var inputPct = totalTokens > 0 ? (stats.totalInput / totalTokens * 100) : 0;
+
+            var selectedUser = users.find(function (u) { return u.id === selectedUserId; });
+            var selectedUserSessions = chatSessions.filter(function (s) { return s.userId === selectedUserId; });
+            var selectedUserStats = selectedUserId ? getUserStats(selectedUserId) : null;
+
+            var tabs = [
+                { id: 'overview', label: 'نظرة عامة', icon: '📊' },
+                { id: 'users', label: 'المستخدمين (' + users.length + ')', icon: '👥' },
+                { id: 'dislikes', label: 'التقييمات السلبية (' + stats.dislikeCount + ')', icon: '👎' },
+                { id: 'cache', label: 'الكاش (' + cacheStats.totalCached + ')', icon: '⚡' },
+                { id: 'pricing', label: 'أسعار النماذج', icon: '💰' },
+            ];
+
+            return h('div', { className: 'min-h-screen p-4 md:p-6 lg:p-8 max-w-7xl mx-auto' },
+
+                // Header
+                h('div', { className: 'glass-card rounded-2xl p-5 mb-6 flex flex-wrap items-center justify-between gap-4 animate-in' },
+                    h('div', { className: 'flex items-center gap-4' },
+                        h('div', { className: 'w-12 h-12 rounded-xl bg-gradient-to-br from-[#C5A059] to-[#a8863e] flex items-center justify-center flex-shrink-0', dangerouslySetInnerHTML: { __html: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0a0e1a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="M9 12l2 2 4-4"/></svg>' } }),
+                        h('div', null,
+                            h('h1', { className: 'text-lg md:text-xl font-bold text-white' }, 'لوحة تحكم المسؤول'),
+                            h('p', { className: 'text-white/40 text-xs md:text-sm' }, 'مساعد الفقيه — إدارة المستخدمين والتوكنات')
+                        )
+                    ),
+                    h('div', { className: 'flex items-center gap-3' },
+                        h('button', { onClick: function () { setShowResetModal(true); }, className: 'btn-danger px-4 py-2 rounded-xl text-sm flex items-center gap-2 tab-btn' }, '🗑 تصفير'),
+                        h('button', { onClick: handleLogout, className: 'btn-danger px-4 py-2 rounded-xl text-sm flex items-center gap-2 tab-btn' }, '🚪 خروج')
+                    )
+                ),
+
+                // Tabs
+                h('div', { className: 'flex gap-2 mb-6 animate-in flex-wrap', style: { animationDelay: '0.05s' } },
+                    tabs.map(function (tab) {
+                        return h('button', {
+                            key: tab.id,
+                            onClick: function () { setActiveTab(tab.id); if (tab.id !== 'users') setSelectedUserId(null); },
+                            className: 'px-4 py-2.5 rounded-xl text-sm font-medium transition-all flex items-center gap-2 tab-btn ' + (activeTab === tab.id ? 'btn-gold' : 'glass-card text-white/60 hover:text-white')
+                        }, h('span', null, tab.icon), ' ', tab.label);
+                    })
+                ),
+
+                // ===== OVERVIEW =====
+                activeTab === 'overview' && h(React.Fragment, null,
+                    h('div', { className: 'grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6' },
+                        [
+                            { title: 'توكنات الإدخال', value: formatNumber(stats.totalInput), icon: '📥', color: '#3b82f6', sub: inputPct.toFixed(1) + '% من الإجمالي' },
+                            { title: 'توكنات الإخراج', value: formatNumber(stats.totalOutput), icon: '📤', color: '#22c55e', sub: (100 - inputPct).toFixed(1) + '% من الإجمالي' },
+                            { title: 'التكلفة الإجمالية', value: formatCost(stats.totalCost), icon: '💵', color: '#C5A059', sub: stats.totalRequests + ' طلب API' },
+                            { title: 'المستخدمين', value: String(users.length), icon: '👥', color: '#a855f7', sub: stats.likeCount + ' 👍 / ' + stats.dislikeCount + ' 👎' },
+                            { title: 'الجلسات', value: String(stats.uniqueSessions.length), icon: '💬', color: '#ec4899', sub: chatSessions.length + ' محادثة' },
+                        ].map(function (stat, i) {
+                            return h('div', { key: i, className: 'stat-card rounded-2xl p-5 animate-in', style: { animationDelay: (0.1 + i * 0.05) + 's' } },
+                                h('div', { className: 'flex items-center justify-between mb-3' },
+                                    h('span', { className: 'text-xl' }, stat.icon),
+                                    h('div', { className: 'w-2 h-2 rounded-full', style: { background: stat.color } })
+                                ),
+                                h('p', { className: 'text-white/40 text-xs mb-1' }, stat.title),
+                                h('p', { className: 'text-2xl font-bold text-white mb-1' }, stat.value),
+                                h('p', { className: 'text-white/30 text-xs' }, stat.sub)
+                            );
+                        })
+                    ),
+                    // Token Distribution
+                    h('div', { className: 'glass-card rounded-2xl p-6 mb-6 animate-in', style: { animationDelay: '0.3s' } },
+                        h('h3', { className: 'text-sm font-bold text-white/80 mb-4' }, 'توزيع التوكنات (إدخال / إخراج)'),
+                        h('div', { className: 'progress-bar mb-3' },
+                            h('div', { className: 'progress-fill flex', style: { width: '100%' } },
+                                h('div', { style: { width: inputPct + '%', background: '#3b82f6', borderRadius: '3px 0 0 3px' } }),
+                                h('div', { style: { width: (100 - inputPct) + '%', background: '#22c55e', borderRadius: '0 3px 3px 0' } })
+                            )
+                        ),
+                        h('div', { className: 'flex justify-between text-xs' },
+                            h('span', { className: 'flex items-center gap-1.5' }, h('span', { className: 'w-2.5 h-2.5 rounded-full bg-blue-500 inline-block' }), h('span', { className: 'text-white/50' }, 'إدخال: ' + formatNumber(stats.totalInput))),
+                            h('span', { className: 'flex items-center gap-1.5' }, h('span', { className: 'w-2.5 h-2.5 rounded-full bg-green-500 inline-block' }), h('span', { className: 'text-white/50' }, 'إخراج: ' + formatNumber(stats.totalOutput)))
+                        )
+                    ),
+                    // By Type
+                    h('div', { className: 'glass-card rounded-2xl p-6 animate-in', style: { animationDelay: '0.35s' } },
+                        h('h3', { className: 'text-sm font-bold text-white/80 mb-4' }, 'التفصيل حسب نوع الطلب'),
+                        Object.keys(stats.byType).length === 0
+                            ? h('p', { className: 'text-white/30 text-sm text-center py-8' }, 'لا توجد بيانات بعد.')
+                            : h('div', { className: 'grid grid-cols-1 md:grid-cols-4 gap-4' },
+                                Object.entries(stats.byType).map(function (entry) {
+                                    var type = entry[0], data = entry[1];
+                                    var colors = TYPE_COLORS[type] || { bg: 'rgba(255,255,255,0.05)', text: '#fff', border: 'rgba(255,255,255,0.1)' };
+                                    var cost = calcCost(data.input, data.output, 'gemini-2.5-flash');
+                                    return h('div', { key: type, className: 'rounded-xl p-4', style: { background: colors.bg, border: '1px solid ' + colors.border } },
+                                        h('div', { className: 'flex items-center justify-between mb-3' },
+                                            h('span', { className: 'text-sm font-bold', style: { color: colors.text } }, TYPE_LABELS[type] || type),
+                                            h('span', { className: 'badge', style: { background: colors.bg, color: colors.text, border: '1px solid ' + colors.border } }, data.count + ' طلب')
+                                        ),
+                                        h('div', { className: 'space-y-1.5 text-xs' },
+                                            h('div', { className: 'flex justify-between text-white/50' }, h('span', null, 'إدخال'), h('span', { className: 'text-white/80 font-medium' }, formatNumber(data.input))),
+                                            h('div', { className: 'flex justify-between text-white/50' }, h('span', null, 'إخراج'), h('span', { className: 'text-white/80 font-medium' }, formatNumber(data.output))),
+                                            h('div', { className: 'flex justify-between text-white/50 pt-1.5 mt-1.5', style: { borderTop: '1px solid ' + colors.border } }, h('span', null, 'التكلفة'), h('span', { className: 'font-bold', style: { color: colors.text } }, formatCost(cost)))
+                                        )
+                                    );
+                                })
+                            )
+                    )
+                ),
+
+                // ===== USERS TAB =====
+                activeTab === 'users' && h('div', { className: 'space-y-6 animate-in' },
+                    !selectedUserId
+                        ? h(React.Fragment, null,
+                            h('div', { className: 'glass-card rounded-2xl overflow-hidden' },
+                                h('div', { className: 'p-5 border-b border-white/5' },
+                                    h('h3', { className: 'text-sm font-bold text-white/80' }, 'المستخدمين المسجلين (' + users.length + ')')
+                                ),
+                                users.length === 0
+                                    ? h('div', { className: 'p-8 text-center text-white/30 text-sm' }, 'لا يوجد مستخدمين مسجلين بعد.')
+                                    : h('div', { className: 'overflow-x-auto' },
+                                        h('table', { className: 'w-full text-sm' },
+                                            h('thead', null,
+                                                h('tr', { className: 'text-white/40 text-xs' },
+                                                    h('th', { className: 'text-right p-3 font-medium' }, 'الاسم'),
+                                                    h('th', { className: 'text-right p-3 font-medium' }, 'العمل'),
+                                                    h('th', { className: 'text-right p-3 font-medium' }, 'الهاتف'),
+                                                    h('th', { className: 'text-right p-3 font-medium' }, 'المحادثات'),
+                                                    h('th', { className: 'text-right p-3 font-medium' }, 'التوكنات'),
+                                                    h('th', { className: 'text-right p-3 font-medium' }, 'التكلفة'),
+                                                    h('th', { className: 'text-right p-3 font-medium' }, 'تاريخ التسجيل'),
+                                                    h('th', { className: 'text-right p-3 font-medium' }, '')
+                                                )
+                                            ),
+                                            h('tbody', null,
+                                                users.map(function (user) {
+                                                    var uStats = getUserStats(user.id);
+                                                    return h('tr', { key: user.id, className: 'table-row cursor-pointer', onClick: function () { setSelectedUserId(user.id); } },
+                                                        h('td', { className: 'p-3 font-bold text-white/80' }, user.name),
+                                                        h('td', { className: 'p-3' }, h('span', { className: 'badge', style: { background: 'rgba(168,85,247,0.15)', color: '#c084fc', border: '1px solid rgba(168,85,247,0.3)' } }, user.job)),
+                                                        h('td', { className: 'p-3 text-white/60 font-mono text-xs' }, user.phone),
+                                                        h('td', { className: 'p-3 text-blue-400 font-bold' }, uStats.sessions),
+                                                        h('td', { className: 'p-3 text-green-400' }, formatNumber(uStats.input + uStats.output)),
+                                                        h('td', { className: 'p-3 font-bold text-[#C5A059]' }, formatCost(uStats.cost)),
+                                                        h('td', { className: 'p-3 text-white/40 text-xs' }, formatDate(user.createdAt)),
+                                                        h('td', { className: 'p-3' }, h('span', { className: 'text-[#C5A059] text-xs hover:underline cursor-pointer' }, 'عرض المحادثات →'))
+                                                    );
+                                                })
+                                            )
+                                        )
+                                    )
+                            )
+                        )
+                        // Selected user detail
+                        : h(React.Fragment, null,
+                            h('div', { className: 'glass-card rounded-2xl p-5 mb-4' },
+                                h('div', { className: 'flex items-center justify-between flex-wrap gap-4' },
+                                    h('div', { className: 'flex items-center gap-4' },
+                                        h('button', { onClick: function () { setSelectedUserId(null); }, className: 'text-white/60 hover:text-white transition p-2 rounded-lg hover:bg-white/5 tab-btn' }, '← رجوع'),
+                                        h('div', null,
+                                            h('h3', { className: 'text-lg font-bold text-white' }, selectedUser ? selectedUser.name : ''),
+                                            h('p', { className: 'text-white/40 text-xs' }, (selectedUser ? selectedUser.job : '') + ' • ' + (selectedUser ? selectedUser.phone : ''))
+                                        )
+                                    ),
+                                    selectedUserStats && h('div', { className: 'flex gap-6 text-xs' },
+                                        h('div', { className: 'text-center' }, h('p', { className: 'text-white/40' }, 'محادثات'), h('p', { className: 'text-lg font-bold text-blue-400' }, selectedUserStats.sessions)),
+                                        h('div', { className: 'text-center' }, h('p', { className: 'text-white/40' }, 'توكنات'), h('p', { className: 'text-lg font-bold text-green-400' }, formatNumber(selectedUserStats.input + selectedUserStats.output))),
+                                        h('div', { className: 'text-center' }, h('p', { className: 'text-white/40' }, 'تكلفة'), h('p', { className: 'text-lg font-bold text-[#C5A059]' }, formatCost(selectedUserStats.cost)))
+                                    )
+                                )
+                            ),
+                            selectedUserSessions.length === 0
+                                ? h('div', { className: 'glass-card rounded-2xl p-8 text-center text-white/30 text-sm' }, 'لا توجد محادثات لهذا المستخدم.')
+                                : selectedUserSessions.map(function (session) {
+                                    return h('div', { key: session.id, className: 'glass-card rounded-2xl overflow-hidden mb-4' },
+                                        h('div', { className: 'p-4 border-b border-white/5 flex items-center justify-between' },
+                                            h('div', null,
+                                                h('h4', { className: 'text-sm font-bold text-white/80' }, session.title),
+                                                h('p', { className: 'text-xs text-white/40' }, formatDate(session.date) + ' • ' + (session.mode === 'MODE_LITERAL' ? 'حرفي' : 'فهم'))
+                                            ),
+                                            h('span', { className: 'badge', style: { background: 'rgba(59,130,246,0.15)', color: '#60a5fa', border: '1px solid rgba(59,130,246,0.3)' } }, (session.messages ? session.messages.length : 0) + ' رسالة')
+                                        ),
+                                        h('div', { className: 'p-4 space-y-3 max-h-96 overflow-y-auto' },
+                                            (session.messages || []).map(function (msg, i) {
+                                                return h('div', { key: i, className: 'p-3 rounded-xl text-sm ' + (msg.role === 'user' ? 'chat-bubble-user text-blue-300 mr-8' : 'chat-bubble-model text-white/70 ml-8') },
+                                                    h('p', { className: 'text-[10px] text-white/30 mb-1 font-bold' }, msg.role === 'user' ? '👤 المستخدم' : '🤖 مساعد الفقيه'),
+                                                    h('p', { className: 'whitespace-pre-wrap text-xs leading-relaxed', style: { maxHeight: '200px', overflow: 'auto' } }, (msg.text || '').substring(0, 500) + ((msg.text || '').length > 500 ? '...' : ''))
+                                                );
+                                            })
+                                        )
+                                    );
+                                })
+                        )
+                ),
+
+                // ===== DISLIKES TAB =====
+                activeTab === 'dislikes' && h('div', { className: 'space-y-6 animate-in' },
+                    h('div', { className: 'glass-card rounded-2xl overflow-hidden' },
+                        h('div', { className: 'p-5 border-b border-white/5' },
+                            h('h3', { className: 'text-sm font-bold text-white/80' }, 'الإجابات التي لم تعجب المستخدمين (' + stats.dislikeCount + ')')
+                        ),
+                        feedback.filter(function (f) { return f.feedback === 'dislike'; }).length === 0
+                            ? h('div', { className: 'p-8 text-center text-white/30 text-sm' },
+                                h('div', { className: 'text-3xl mb-3' }, '✅'),
+                                'لا توجد تقييمات سلبية بعد. هذا ممتاز!'
+                            )
+                            : h('div', { className: 'divide-y divide-white/5' },
+                                feedback.filter(function (f) { return f.feedback === 'dislike'; }).sort(function (a, b) { return b.timestamp - a.timestamp; }).map(function (fb) {
+                                    return h('div', { key: fb.id, className: 'p-4' },
+                                        h('div', { className: 'flex items-center justify-between mb-3' },
+                                            h('div', { className: 'flex items-center gap-3' },
+                                                h('div', { className: 'w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center text-red-400 text-sm' }, '👎'),
+                                                h('div', null,
+                                                    h('p', { className: 'text-sm font-bold text-white/80' }, fb.userName),
+                                                    h('p', { className: 'text-xs text-white/40' }, (fb.mode === 'MODE_LITERAL' ? 'حرفي' : 'فهم') + ' • ' + formatDate(fb.timestamp))
+                                                )
+                                            )
+                                        ),
+                                        h('div', { className: 'chat-bubble-user p-3 rounded-xl mb-2' },
+                                            h('p', { className: 'text-[10px] text-white/30 mb-1 font-bold' }, '❓ السؤال'),
+                                            h('p', { className: 'text-sm text-blue-300' }, fb.question || '—')
+                                        ),
+                                        h('div', { className: 'chat-bubble-model p-3 rounded-xl' },
+                                            h('p', { className: 'text-[10px] text-white/30 mb-1 font-bold' }, '🤖 الإجابة'),
+                                            h('p', { className: 'text-xs text-white/60 whitespace-pre-wrap', style: { maxHeight: '200px', overflow: 'auto' } }, (fb.answer || '').substring(0, 600) + ((fb.answer || '').length > 600 ? '...' : ''))
+                                        )
+                                    );
+                                })
+                            )
+                    )
+                ),
+
+                // ===== CACHE TAB =====
+                activeTab === 'cache' && h('div', { className: 'space-y-6 animate-in' },
+                    h('div', { className: 'grid grid-cols-2 lg:grid-cols-4 gap-4' },
+                        [
+                            { title: 'إجابات مخزنة', value: String(cacheStats.totalCached), icon: '📦', color: '#3b82f6' },
+                            { title: 'عدد الإصابات', value: String(cacheStats.totalHits), icon: '🎯', color: '#22c55e' },
+                            { title: 'توكنات موفرة', value: formatNumber(cacheStats.inputSaved + cacheStats.outputSaved), icon: '📉', color: '#a855f7' },
+                            { title: 'تكلفة موفرة', value: formatCost(cacheStats.costSaved), icon: '💵', color: '#C5A059' },
+                        ].map(function (stat, i) {
+                            return h('div', { key: i, className: 'stat-card rounded-2xl p-5 animate-in', style: { animationDelay: (i * 0.05) + 's' } },
+                                h('div', { className: 'flex items-center justify-between mb-3' }, h('span', { className: 'text-xl' }, stat.icon), h('div', { className: 'w-2 h-2 rounded-full', style: { background: stat.color } })),
+                                h('p', { className: 'text-white/40 text-xs mb-1' }, stat.title),
+                                h('p', { className: 'text-2xl font-bold text-white' }, stat.value)
+                            );
+                        })
+                    ),
+                    h('div', { className: 'glass-card rounded-2xl overflow-hidden' },
+                        h('div', { className: 'p-5 border-b border-white/5 flex items-center justify-between' },
+                            h('h3', { className: 'text-sm font-bold text-white/80' }, 'الأسئلة المخزنة (' + cacheStats.totalCached + ')'),
+                            cacheStats.totalCached > 0 && h('button', { onClick: function () { localStorage.removeItem('fiqh_answer_cache'); setCacheData({}); }, className: 'text-xs btn-danger px-3 py-1.5 rounded-lg tab-btn' }, 'حذف الكاش')
+                        ),
+                        Object.keys(cacheData).length === 0
+                            ? h('div', { className: 'p-8 text-center text-white/30 text-sm' }, h('div', { className: 'text-3xl mb-3' }, '⚡'), 'الكاش فارغ.')
+                            : h('div', { className: 'overflow-x-auto' },
+                                h('table', { className: 'w-full text-sm' },
+                                    h('thead', null, h('tr', { className: 'text-white/40 text-xs' },
+                                        h('th', { className: 'text-right p-3 font-medium' }, 'السؤال'),
+                                        h('th', { className: 'text-right p-3 font-medium' }, 'الوضع'),
+                                        h('th', { className: 'text-right p-3 font-medium' }, 'الإصابات'),
+                                        h('th', { className: 'text-right p-3 font-medium' }, 'توكنات/إصابة'),
+                                        h('th', { className: 'text-right p-3 font-medium' }, 'تاريخ')
+                                    )),
+                                    h('tbody', null,
+                                        Object.entries(cacheData).sort(function (a, b) { return (b[1].hitCount || 0) - (a[1].hitCount || 0); }).map(function (pair) {
+                                            var key = pair[0], entry = pair[1];
+                                            return h('tr', { key: key, className: 'table-row' },
+                                                h('td', { className: 'p-3 max-w-xs' }, h('span', { className: 'text-white/70 text-xs block truncate' }, entry.question || '—')),
+                                                h('td', { className: 'p-3' }, h('span', { className: 'badge', style: { background: 'rgba(34,197,94,0.15)', color: '#4ade80', border: '1px solid rgba(34,197,94,0.3)' } }, entry.mode === 'MODE_LITERAL' ? 'حرفي' : 'فهم')),
+                                                h('td', { className: 'p-3 font-bold text-yellow-400' }, String(entry.hitCount || 0)),
+                                                h('td', { className: 'p-3 text-purple-400' }, formatNumber((entry.inputTokens || 0) + (entry.outputTokens || 0))),
+                                                h('td', { className: 'p-3 text-white/40 text-xs' }, formatDate(entry.cachedAt))
+                                            );
+                                        })
+                                    )
+                                )
+                            )
+                    )
+                ),
+
+                // ===== PRICING TAB =====
+                activeTab === 'pricing' && h('div', { className: 'space-y-6 animate-in' },
+                    h('div', { className: 'glass-card rounded-2xl p-6' },
+                        h('h3', { className: 'text-sm font-bold text-white/80 mb-4' }, 'أسعار النماذج (لكل مليون توكن)'),
+                        h('div', { className: 'grid grid-cols-1 md:grid-cols-2 gap-4' },
+                            Object.entries(MODEL_PRICING).map(function (pair) {
+                                var key = pair[0], model = pair[1];
+                                var isActive = key === 'gemini-2.5-flash';
+                                return h('div', { key: key, className: 'rounded-xl p-5 transition-all ' + (isActive ? 'cost-highlight' : 'stat-card') },
+                                    h('div', { className: 'flex items-center justify-between mb-4' },
+                                        h('h4', { className: 'text-base font-bold ' + (isActive ? 'text-[#C5A059]' : 'text-white/80') }, model.label),
+                                        isActive && h('span', { className: 'badge', style: { background: 'rgba(34,197,94,0.15)', color: '#4ade80', border: '1px solid rgba(34,197,94,0.3)' } }, '● مُفعّل')
+                                    ),
+                                    h('div', { className: 'grid grid-cols-2 gap-4' },
+                                        h('div', null, h('p', { className: 'text-white/40 text-xs mb-1' }, 'تكلفة الإدخال'), h('p', { className: 'text-xl font-bold text-blue-400' }, '$' + model.input), h('p', { className: 'text-white/30 text-xs mt-0.5' }, '/ مليون توكن')),
+                                        h('div', null, h('p', { className: 'text-white/40 text-xs mb-1' }, 'تكلفة الإخراج'), h('p', { className: 'text-xl font-bold text-green-400' }, '$' + model.output), h('p', { className: 'text-white/30 text-xs mt-0.5' }, '/ مليون توكن'))
+                                    ),
+                                    stats.totalInput > 0 && h('div', { className: 'mt-4 pt-4', style: { borderTop: '1px solid rgba(255,255,255,0.06)' } },
+                                        h('p', { className: 'text-white/40 text-xs mb-1' }, 'التكلفة التقديرية لاستخدامك الحالي'),
+                                        h('p', { className: 'text-lg font-bold ' + (isActive ? 'text-[#C5A059]' : 'text-white/60') }, formatCost(calcCost(stats.totalInput, stats.totalOutput, key)))
+                                    )
+                                );
+                            })
+                        )
+                    )
+                ),
+
+                // Reset Modal
+                showResetModal && h('div', { className: 'modal-overlay', onClick: function () { setShowResetModal(false); } },
+                    h('div', { className: 'modal-card', onClick: function (e) { e.stopPropagation(); } },
+                        h('h3', { className: 'text-lg font-bold text-white mb-2' }, 'تأكيد التصفير'),
+                        h('p', { className: 'text-white/50 text-sm mb-6' }, 'هل أنت متأكد من حذف بيانات التوكنات والتقييمات والكاش؟ لا يمكن التراجع.'),
+                        h('div', { className: 'flex gap-3' },
+                            h('button', { onClick: handleReset, className: 'flex-1 py-2.5 rounded-xl bg-red-500/20 border border-red-500/30 text-red-400 font-bold text-sm hover:bg-red-500/30 transition-all tab-btn' }, 'نعم، تصفير'),
+                            h('button', { onClick: function () { setShowResetModal(false); }, className: 'flex-1 py-2.5 rounded-xl glass-card text-white/60 font-medium text-sm hover:text-white transition-all tab-btn' }, 'إلغاء')
+                        )
+                    )
+                )
+            );
+        }
+
+        var root = ReactDOM.createRoot(document.getElementById('dashboard-root'));
+        root.render(h(Dashboard));
+    </script>
+</body>
+
+</html>

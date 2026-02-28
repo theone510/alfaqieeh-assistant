@@ -9,7 +9,7 @@ export default defineConfig(({ mode }) => {
 
   return {
     server: {
-      port: 3000,
+      port: 5000,
       host: '0.0.0.0',
     },
     plugins: [
@@ -66,6 +66,15 @@ export default defineConfig(({ mode }) => {
       alias: {
         '@': path.resolve(__dirname, '.'),
       }
-    }
+    },
+    build: {
+      rollupOptions: {
+        input: {
+          main: path.resolve(__dirname, 'index.html'),
+          admin: path.resolve(__dirname, 'admin.html'),
+          adminDashboard: path.resolve(__dirname, 'admin-dashboard.html'),
+        },
+      },
+    },
   };
 });

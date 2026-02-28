@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { BookOpen, MessageCircle, Info, Send, Eraser, User, Bot, AlertCircle, Settings, FileText, Scroll, ArrowRight, CheckCircle2, History, Plus, Trash2, MessageSquare, Mic, StopCircle, Download, Menu, X, Globe } from 'lucide-react';
+import { BookOpen, MessageCircle, Info, Send, Eraser, User, Bot, AlertCircle, Settings, FileText, Scroll, ArrowRight, CheckCircle2, History, Plus, Trash2, MessageSquare, Mic, StopCircle, Download, Menu, X, Globe, Copy, ThumbsUp, ThumbsDown, LogOut, Phone, Lock, Briefcase, UserPlus, LogIn } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 
 // --- System Instruction (DSE Payload) ---
@@ -19,10 +19,20 @@ const SYSTEM_INSTRUCTION = `
 1.  **[وضع النص الحرفي - MODE_LITERAL]:**
     * **القيد الصارم:** ممنوع منعاً باتاً أي تدخل بشري أو تفسيري. انقل النص كما هو بفاصلته ونقطته.
     * **التعامل مع الفجوات:** إذا كان النص يعالج جزءاً من السؤال، انقل الجزء المتعلق فقط دون محاولة سد الفجوات بالاستنتاج.
+    * **الاختصار:** إذا كان النص المصدري طويلاً، اقتبس فقط الجزء الذي يُجيب على السؤال مباشرة. لا تنقل النص كاملاً إذا كان جزء صغير منه فقط يتعلق بالسؤال.
 
 2.  **[وضع الفهم المستنبط - MODE_UNDERSTANDING]:**
-    * **القيد الصارم:** الاستنباط يجب أن يكون "استنباطاً أميناً" وليس رأياً شخصياً.
-    * **شرط التحقق:** يجب أن تعثر على نصوص دعم (قواعد كلية أو فتاوى مشابهة) لتبني عليها الفهم.
+    * **الهدف:** استنباط الحكم الشرعي من خلال الربط بين النصوص والقواعد الفقهية المتوفرة، حتى لو لم يوجد نص يطابق السؤال حرفياً.
+    * **منهجية الاستنباط الموسّع:**
+      - ابحث أولاً عن نص مباشر يُجيب السؤال.
+      - إذا لم تجد نصاً مباشراً، ابحث عن **المواضيع ذات الصلة والقواعد الفقهية الكلية** التي تنطبق على الموضوع. مثلاً:
+        * سؤال عن "الاعتداء العسكري" → ابحث في: الدفاع عن النفس، الجهاد الدفاعي، وجوب حفظ النفس، الأمر بالمعروف والنهي عن المنكر.
+        * سؤال عن "التجارة الالكترونية" → ابحث في: أحكام البيع والشراء، شروط المعاملات، الربا، الغرر.
+        * سؤال عن "التبرع بالأعضاء" → ابحث في: حرمة الإضرار بالنفس، وجوب حفظ النفس المحترمة، التصرف بالبدن.
+      - اربط بين النصوص المتعددة لبناء إجابة شاملة.
+      - وضّح كيف توصلت إلى الحكم من خلال ربط القواعد بالسؤال المطروح.
+    * **القيد:** الاستنباط يجب أن يكون "استنباطاً أميناً" مبنياً على قواعد السيد السيستاني الفقهية وليس رأياً شخصياً.
+    * **مهم جداً:** لا تلجأ إلى "عدم وجود مورد" إلا إذا كان السؤال خارج نطاق الفقه تماماً أو لا توجد أي نصوص ذات صلة حتى بشكل غير مباشر.
 
 ---
 
@@ -33,19 +43,32 @@ const SYSTEM_INSTRUCTION = `
     3. التمييز بين (الفتوى) و(الاحتياط الوجوبي) و(الاحتياط الاستحبابي) كما وردت في النص.
     4. استخدام لغة عربية فصحى تخصصية (لغة الفقهاء).
     5. ذكر الكتاب، المجلد (إن وجد)، القسم، ورقم المسألة بدقة.
+    6. **في وضع الفهم:** عند عدم وجود نص مباشر، يجب البحث في القواعد الفقهية الكلية والمواضيع المرتبطة لبناء إجابة مستنبطة.
 
-* **MUST NOT (يُمنع):**
+* **MUST NOT (يُمنع منعاً باتاً):**
     1. استخدام أي قاعدة فقهية من خارج مدرسة السيد السيستاني (مثل القياس أو الاستحسان أو آراء مراجع آخرين).
-    2. الإجابة على الأسئلة غير الفقهية (سياسة، اجتماع، أخبار، إلخ).
-    3. تقديم نصيحة شخصية أو "وعظ" خارج إطار الحكم الشرعي.
+    2. **الإجابة على أي سؤال سياسي** (مثل: الانتخابات، الأحزاب، الحكومات، الحروب بين الدول، العلاقات الدولية، الاعتداءات العسكرية) حتى لو كان له بُعد فقهي غير مباشر.
+    3. **الإجابة على أي سؤال رياضي** (مثل: كرة القدم، المباريات، الرياضة، اللياقة البدنية).
+    4. **الإجابة على أي سؤال اقتصادي بحت** (مثل: أسعار العملات، البورصة، الاستثمار، التضخم) ما لم يكن السؤال فقهياً مباشراً عن حكم شرعي محدد (مثل: هل يجوز التعامل بالربا؟).
+    5. الإجابة على الأسئلة الترفيهية، التقنية، العلمية، الطبية البحتة، أو أي موضوع لا علاقة مباشرة له بالفقه.
+    6. تقديم نصيحة شخصية أو "وعظ" خارج إطار الحكم الشرعي.
+    7. **التسرع في قول "لا يوجد مورد"** في وضع الفهم — يجب استنفاد كل محاولات الربط بالمواضيع ذات الصلة الفقهية أولاً.
+    8. **الإجابة على أسئلة غير فقهية مباشرة** بمحاولة إيجاد ربط فقهي غير موجود — يجب أن يكون السؤال فقهياً بطبيعته.
 
 ---
 
 ### ثالثاً: خوارزمية المعالجة الداخلية (Reasoning Chain)
-1. **الخطوة 1 (تصنيف القصد):** هل السؤال فقهي؟ (نعم: استمر | لا: اعتذر بصرامة).
+1. **الخطوة 1 (تصنيف القصد — فلتر صارم):**
+   - هل السؤال **فقهي مباشر** يسأل عن حكم شرعي محدد؟ (نعم: استمر | لا: اعتذر بصرامة).
+   - **ارفض فوراً** إذا كان السؤال: سياسي، رياضي، اقتصادي بحت، ترفيهي، تقني، طبي، علمي، أو أي موضوع غير فقهي.
+   - **أمثلة على أسئلة مرفوضة:** "لو اعتدت دولة علينا"، "ما رأيك في الانتخابات"، "حكم مشاهدة كرة القدم"، "هل الاستثمار في البورصة حلال".
+   - **أمثلة على أسئلة مقبولة:** "ما حكم الصلاة"، "ما حكم الشك في الصلاة"، "هل يجوز أكل لحم الأرنب"، "ما حكم الخمس"، "ما حكم الربا في المعاملات البنكية".
 2. **الخطوة 2 (تحديد الوضع):** هل اختار المستخدم (الوضع الأول) أم (الوضع الثاني)؟
-3. **الخطوة 3 (الاسترجاع):** الاعتماد الحصري والكامل على (النصوص المزودة لك في سياق البحث) وعدم استخدام معلوماتك المدربة مسبقاً إطلاقاً.
-4. **الخطوة 4 (التكييف الفقهي):** استخلاص الحكم المختصر (النتيجة النهائية للحكم).
+3. **الخطوة 3 (الاسترجاع الموسّع):**
+   - **المستوى الأول:** ابحث عن نصوص تُطابق السؤال مباشرة في النصوص المزودة.
+   - **المستوى الثاني (للوضع الثاني فقط):** إذا لم تجد تطابقاً مباشراً، ابحث عن القواعد الفقهية الكلية والمواضيع ذات الصلة في النصوص المزودة (مثل: قواعد الضرر، حفظ النفس، الدفاع، المعاملات، العبادات المشابهة).
+   - **المستوى الثالث (للوضع الثاني فقط):** استخدم فهمك للمنظومة الفقهية للسيد السيستاني لتطبيق القواعد الكلية الموجودة في النصوص المزودة على الحالة المسؤول عنها.
+4. **الخطوة 4 (التكييف الفقهي):** استخلاص الحكم المختصر (النتيجة النهائية للحكم). في الوضع الثاني، وضّح سلسلة الاستدلال.
 5. **الخطوة 5 (التوليف):** صب النتيجة في القالب المحدد أدناه دون أي زيادة أو نقصان.
 
 ---
@@ -59,7 +82,7 @@ const SYSTEM_INSTRUCTION = `
 > [اكتب الحكم الفقهي الدقيق هنا: يجوز / لا يجوز / واجب / حرام / احتياط وجوبي / احتياط استحبابي... إلخ]
 >
 > 📝 **النص الحرفي:**
-> [أدرج النص هنا بدقة 100%]
+> [أدرج فقط الجزء من النص الذي يُجيب على السؤال مباشرة — لا تنقل النص كاملاً إذا كان طويلاً. اقتبس الفقرة أو الجملة ذات الصلة فقط بدقة 100%]
 >
 > 📚 **المصدر:**
 > [انسخ (التوثيق الكامل) المرفق في أسماء المصادر المزودة لك بدقة، وإذا لم يتوفر انسخ الكتاب والرقم]
@@ -73,16 +96,19 @@ const SYSTEM_INSTRUCTION = `
 > [اكتب الحكم الفقهي الدقيق هنا: يجوز / لا يجوز / واجب / حرام / احتياط وجوبي / احتياط استحبابي... إلخ]
 >
 > 💡 **التفصيل (فهم مستند إلى النصوص):**
-> [شرح مستمد مباشرة من القواعد الفقهية للسيد السيستاني]
+> [شرح مستمد من القواعد الفقهية للسيد السيستاني مع بيان سلسلة الاستنباط: كيف ربطت بين القواعد الكلية والسؤال المطروح]
 >
 > 📚 **النصوص الداعمة:**
-> [اذكر الفتاوى والنصوص الحرفية واقتبس (التوثيق الكامل) لكل نص من النصوص المزودة لك فقط]
+> [اقتبس فقط الأجزاء ذات الصلة من النصوص — لا تنقل نصوصاً طويلة كاملة. اقتبس الجملة أو الفقرة التي تدعم الحكم مباشرة مع (التوثيق الكامل)]
 >
-> **تنبيه:** هذا الجواب يمثل فهماً مستنداً إلى النصوص، وليس نقلاً حرفياً أو فتوى مباشرة.
+> 🔗 **سلسلة الاستدلال:**
+> [وضّح كيف ربطت بين النصوص المتوفرة والسؤال المطروح، مثلاً: "السؤال يندرج تحت باب X، والقاعدة الفقهية Y تنص على..."]
+>
+> **تنبيه:** هذا الجواب يمثل فهماً مستنداً إلى النصوص والقواعد الفقهية، وليس نقلاً حرفياً أو فتوى مباشرة.
 > **والله هو العالم بحقائق الأمور.**
 
-#### الحالة (ج): عدم وجود مورد
-> **لم أجد في المصادر التابعة لسماحة السيد السيستاني دام ظلّه ما يمكن الاعتماد عليه للإجابة على هذا السؤال.**
+#### الحالة (ج): عدم وجود مورد (تُستخدم فقط بعد استنفاد جميع محاولات الربط)
+> **لم أجد في المصادر التابعة لسماحة السيد السيستاني دام ظلّه ما يمكن الاعتماد عليه للإجابة على هذا السؤال، حتى بشكل غير مباشر.**
 > **والله هو العالم بحقائق الأمور.**
 `;
 
@@ -102,6 +128,28 @@ type ChatSession = {
     messages: Message[];
     mode: Mode;
     date: number;
+    userId?: string;
+};
+
+type UserProfile = {
+    id: string;
+    phone: string;
+    password: string;
+    name: string;
+    job: string;
+    createdAt: number;
+};
+
+type FeedbackEntry = {
+    id: string;
+    userId: string;
+    userName: string;
+    sessionId: string;
+    question: string;
+    answer: string;
+    mode: string;
+    feedback: 'like' | 'dislike';
+    timestamp: number;
 };
 
 // --- RAG System Types ---
@@ -166,6 +214,113 @@ const searchFatwas = async (query: string): Promise<string> => {
     } catch (error) {
         console.error("Error searching fatwas:", error);
         return '';
+    }
+};
+
+// --- Token Usage Tracking ---
+const MODEL_NAME = 'gemini-2.5-flash';
+
+const logTokenUsage = (response: any, sessionId: string, type: string, userId?: string) => {
+    try {
+        const usage = response?.response?.usageMetadata;
+        if (!usage) return;
+
+        const entry = {
+            id: crypto.randomUUID(),
+            sessionId,
+            model: MODEL_NAME,
+            inputTokens: usage.promptTokenCount || 0,
+            outputTokens: usage.candidatesTokenCount || 0,
+            totalTokens: usage.totalTokenCount || 0,
+            type, // 'translation_to_ar' | 'fiqh_answer' | 'translation_back'
+            userId: userId || '',
+            timestamp: Date.now(),
+        };
+
+        const existing = JSON.parse(localStorage.getItem('token_usage_log') || '[]');
+        existing.push(entry);
+        localStorage.setItem('token_usage_log', JSON.stringify(existing));
+    } catch (e) {
+        console.error('Token logging error:', e);
+    }
+};
+
+// --- Answer Cache System ---
+const CACHE_KEY = 'fiqh_answer_cache';
+const CACHE_MAX_AGE = 30 * 24 * 60 * 60 * 1000; // 30 days
+
+const normalizeQuestion = (text: string): string => {
+    return text
+        .replace(/[\u064B-\u065F\u0670]/g, '') // Remove Arabic diacritics (tashkeel)
+        .replace(/[؟?!.,،؛:]/g, '') // Remove punctuation
+        .replace(/\s+/g, ' ') // Normalize whitespace
+        .trim()
+        .toLowerCase();
+};
+
+const getCacheKey = (question: string, mode: string): string => {
+    return `${mode}::${normalizeQuestion(question)}`;
+};
+
+const checkCache = (question: string, mode: string): { answer: string; cachedAt: number } | null => {
+    try {
+        const cache = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}');
+        const key = getCacheKey(question, mode);
+        const entry = cache[key];
+        if (entry && (Date.now() - entry.cachedAt) < CACHE_MAX_AGE) {
+            return entry;
+        }
+        // Clean expired entry
+        if (entry) {
+            delete cache[key];
+            localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
+        }
+        return null;
+    } catch {
+        return null;
+    }
+};
+
+const saveToCache = (question: string, mode: string, answer: string, inputTokens: number, outputTokens: number) => {
+    try {
+        const cache = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}');
+        const key = getCacheKey(question, mode);
+        cache[key] = {
+            answer,
+            question: question.substring(0, 100),
+            mode,
+            cachedAt: Date.now(),
+            inputTokens,
+            outputTokens,
+            hitCount: 0,
+        };
+        localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
+    } catch (e) {
+        console.error('Cache save error:', e);
+    }
+};
+
+const logCacheHit = (sessionId: string, inputTokensSaved: number, outputTokensSaved: number) => {
+    try {
+        // Update hit count in cache
+        const cache = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}');
+        // Log cache hit to token usage log as savings
+        const existing = JSON.parse(localStorage.getItem('token_usage_log') || '[]');
+        existing.push({
+            id: crypto.randomUUID(),
+            sessionId,
+            model: MODEL_NAME,
+            inputTokens: 0,
+            outputTokens: 0,
+            totalTokens: 0,
+            type: 'cache_hit',
+            inputTokensSaved: inputTokensSaved,
+            outputTokensSaved: outputTokensSaved,
+            timestamp: Date.now(),
+        });
+        localStorage.setItem('token_usage_log', JSON.stringify(existing));
+    } catch (e) {
+        console.error('Cache hit log error:', e);
     }
 };
 
@@ -437,7 +592,7 @@ const App = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [mode, setMode] = useState<Mode>('MODE_LITERAL');
     const [hasStarted, setHasStarted] = useState(false);
-    const [apiKey, setApiKey] = useState(process.env.API_KEY || '');
+    const [apiKey, setApiKey] = useState(import.meta.env.VITE_GEMINI_API_KEY || '');
     const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [language, setLanguage] = useState<Language>('ar');
@@ -446,6 +601,140 @@ const App = () => {
     const t = (key: string) => translations[language][key] || key;
     const isRTL = rtlLanguages.includes(language);
 
+
+    // --- User Auth State ---
+    const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+    const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+    const [authPhone, setAuthPhone] = useState('');
+    const [authPassword, setAuthPassword] = useState('');
+    const [authName, setAuthName] = useState('');
+    const [authJob, setAuthJob] = useState('');
+    const [authError, setAuthError] = useState('');
+    const [showAuthPassword, setShowAuthPassword] = useState(false);
+    const [feedbackMap, setFeedbackMap] = useState<Record<string, 'like' | 'dislike'>>({});
+    const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
+
+    const JOB_OPTIONS = ['مبلغ ديني', 'باحث أكاديمي', 'موظف', 'كاسب', 'طالب حوزوي', 'طالب جامعي', 'أخرى'];
+
+    // Load current user from sessionStorage on mount
+    useEffect(() => {
+        const saved = sessionStorage.getItem('faqih_current_user');
+        if (saved) {
+            try { setCurrentUser(JSON.parse(saved)); } catch { }
+        }
+    }, []);
+
+    // Load feedback map for current session
+    useEffect(() => {
+        if (currentSessionId) {
+            try {
+                const allFeedback: FeedbackEntry[] = JSON.parse(localStorage.getItem('faqih_feedback') || '[]');
+                const sessionFeedback: Record<string, 'like' | 'dislike'> = {};
+                allFeedback.filter(f => f.sessionId === currentSessionId).forEach(f => {
+                    sessionFeedback[`${f.question}::${f.answer.substring(0, 50)}`] = f.feedback;
+                });
+                setFeedbackMap(sessionFeedback);
+            } catch { setFeedbackMap({}); }
+        }
+    }, [currentSessionId]);
+
+    const handleRegister = () => {
+        setAuthError('');
+        if (!authPhone.trim() || !authPassword.trim() || !authName.trim() || !authJob.trim()) {
+            setAuthError('يرجى ملء جميع الحقول');
+            return;
+        }
+        const users: UserProfile[] = JSON.parse(localStorage.getItem('faqih_users') || '[]');
+        if (users.find(u => u.phone === authPhone.trim())) {
+            setAuthError('رقم الهاتف مسجل مسبقاً. قم بتسجيل الدخول.');
+            return;
+        }
+        const newUser: UserProfile = {
+            id: crypto.randomUUID(),
+            phone: authPhone.trim(),
+            password: authPassword.trim(),
+            name: authName.trim(),
+            job: authJob.trim(),
+            createdAt: Date.now(),
+        };
+        users.push(newUser);
+        localStorage.setItem('faqih_users', JSON.stringify(users));
+        setCurrentUser(newUser);
+        sessionStorage.setItem('faqih_current_user', JSON.stringify(newUser));
+        setAuthPhone(''); setAuthPassword(''); setAuthName(''); setAuthJob(''); setAuthError('');
+    };
+
+    const handleLogin = () => {
+        setAuthError('');
+        if (!authPhone.trim() || !authPassword.trim()) {
+            setAuthError('يرجى إدخال رقم الهاتف وكلمة السر');
+            return;
+        }
+        const users: UserProfile[] = JSON.parse(localStorage.getItem('faqih_users') || '[]');
+        const user = users.find(u => u.phone === authPhone.trim() && u.password === authPassword.trim());
+        if (!user) {
+            setAuthError('رقم الهاتف أو كلمة السر غير صحيحة');
+            return;
+        }
+        setCurrentUser(user);
+        sessionStorage.setItem('faqih_current_user', JSON.stringify(user));
+        setAuthPhone(''); setAuthPassword(''); setAuthError('');
+    };
+
+    const handleLogout = () => {
+        setCurrentUser(null);
+        sessionStorage.removeItem('faqih_current_user');
+        setHasStarted(false);
+        setMessages([]);
+        setCurrentSessionId(null);
+    };
+
+    const handleFeedback = (msgIdx: number, type: 'like' | 'dislike') => {
+        if (!currentUser || !currentSessionId) return;
+        // Find the question (previous user message)
+        let question = '';
+        for (let i = msgIdx - 1; i >= 0; i--) {
+            if (messages[i].role === 'user') { question = messages[i].text; break; }
+        }
+        const answer = messages[msgIdx].text;
+        const key = `${question}::${answer.substring(0, 50)}`;
+
+        // Toggle: if same feedback, remove it
+        const currentFeedback = feedbackMap[key];
+        const allFeedback: FeedbackEntry[] = JSON.parse(localStorage.getItem('faqih_feedback') || '[]');
+
+        if (currentFeedback === type) {
+            // Remove feedback
+            const updated = allFeedback.filter(f => !(f.sessionId === currentSessionId && f.question === question && f.answer.substring(0, 50) === answer.substring(0, 50)));
+            localStorage.setItem('faqih_feedback', JSON.stringify(updated));
+            setFeedbackMap(prev => { const n = { ...prev }; delete n[key]; return n; });
+        } else {
+            // Remove old feedback for same Q&A if exists
+            const filtered = allFeedback.filter(f => !(f.sessionId === currentSessionId && f.question === question && f.answer.substring(0, 50) === answer.substring(0, 50)));
+            const entry: FeedbackEntry = {
+                id: crypto.randomUUID(),
+                userId: currentUser.id,
+                userName: currentUser.name,
+                sessionId: currentSessionId,
+                question,
+                answer,
+                mode,
+                feedback: type,
+                timestamp: Date.now(),
+            };
+            filtered.push(entry);
+            localStorage.setItem('faqih_feedback', JSON.stringify(filtered));
+            setFeedbackMap(prev => ({ ...prev, [key]: type }));
+        }
+    };
+
+    const handleCopy = async (text: string, idx: number) => {
+        try {
+            await navigator.clipboard.writeText(text);
+            setCopiedIdx(idx);
+            setTimeout(() => setCopiedIdx(null), 2000);
+        } catch { }
+    };
 
     // Voice State
     const [isRecording, setIsRecording] = useState(false);
@@ -637,7 +926,8 @@ ${t('welcomeAsk')}`
                 title: userMessageText.substring(0, 40) + (userMessageText.length > 40 ? '...' : ''),
                 messages: updatedMessages,
                 mode: mode,
-                date: Date.now()
+                date: Date.now(),
+                userId: currentUser?.id,
             };
             newSessionsList = [newSession, ...newSessionsList];
         } else {
@@ -677,40 +967,102 @@ ${t('welcomeAsk')}`
                     }]
                 });
                 questionInArabic = translateToArabicResponse.response.text() || userMessageText;
+                logTokenUsage(translateToArabicResponse, sessionId!, 'translation_to_ar', currentUser?.id);
             }
 
 
-            // Step 3: Search local fatwas data (RAG)
-            const ragContext = await searchFatwas(questionInArabic);
+            // --- CACHE CHECK ---
+            const cachedAnswer = checkCache(questionInArabic, mode);
+            let text: string;
+            let wasFromCache = false;
 
-            // Step 4: Get the fiqh answer in Arabic with RAG context
-            let promptWithContext = '';
-            if (mode === 'MODE_LITERAL') {
-                promptWithContext = `[هام جداً: أنت في "الوضع الحرفي". يُمنع التلخيص أو الاستنتاج الذاتي. اعتمد حصراً على النص أدناه. انسخ النص حرفياً وانسخ التوثيق الكامل للمصدر المرفق في السياق بدقة متناهية دون اختلاق أرقام مسألة أو دمج مصادر].\n\nالسؤال: ${questionInArabic}\n\nالسياق:\n${ragContext}`;
-            } else {
-                promptWithContext = `[هام: أنت في "وضع الفهم". قدم حكماً مختصراً ثم شرحاً مستنداً للنصوص المرفقة أدناه، واقتبس التوثيق الكامل للمصدر المرفق في السياق دون اختلاق أرقام أو التفاف].\n\nالسؤال: ${questionInArabic}\n\nالسياق:\n${ragContext}`;
-            }
-
-            const response = await model.generateContent({
-                contents: [
-                    ...messages.filter(m => m.role === 'model' || isArabic).map(m => ({
-                        role: m.role,
-                        parts: [{ text: m.text }]
-                    })),
-                    {
-                        role: 'user',
-                        parts: [{ text: promptWithContext }]
-                    }
-                ],
-                generationConfig: {
-                    temperature: 0.3,
+            if (cachedAnswer) {
+                // Cache HIT — skip RAG + Gemini API call entirely
+                console.log('✅ Cache HIT for:', questionInArabic.substring(0, 50));
+                text = cachedAnswer.answer;
+                wasFromCache = true;
+                // Log the tokens saved
+                const cacheEntry = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}');
+                const cKey = getCacheKey(questionInArabic, mode);
+                if (cacheEntry[cKey]) {
+                    cacheEntry[cKey].hitCount = (cacheEntry[cKey].hitCount || 0) + 1;
+                    localStorage.setItem(CACHE_KEY, JSON.stringify(cacheEntry));
+                    logCacheHit(sessionId!, cacheEntry[cKey].inputTokens || 0, cacheEntry[cKey].outputTokens || 0);
                 }
-            });
+            } else {
+                // Cache MISS — proceed with normal flow
+                console.log('❌ Cache MISS for:', questionInArabic.substring(0, 50));
 
-            let text = response.response.text() || "عذراً، لم أتمكن من استخراج إجابة.";
+                // Step 3: Normalize the question to formal fiqh terminology for better RAG search
+                // This step converts colloquial/dialect Arabic to formal fiqh terms
+                let searchQuery = questionInArabic;
+                try {
+                    const normalizeResponse = await model.generateContent({
+                        contents: [{
+                            role: 'user',
+                            parts: [{
+                                text: `أنت مساعد متخصص في تحويل الأسئلة العامية أو غير الرسمية إلى مصطلحات فقهية رسمية للبحث في قاعدة بيانات فتاوى السيد السيستاني.
 
-            // Step 4: If the original question was not in Arabic, translate the answer back to the user's language
-            if (!isArabic) {
+حوّل السؤال التالي إلى عبارة بحث فقهية رسمية بالعربية الفصحى. استخرج الموضوع الفقهي الأساسي وأضف المصطلحات الفقهية ذات الصلة.
+
+أمثلة:
+- "شيصير لو تنايجت وية صديقتي" → "حكم الزنا والعلاقة الجنسية المحرمة بين غير المتزوجين"
+- "هل اكدر اكل لحم خنزير" → "حكم أكل لحم الخنزير في الإسلام"  
+- "لو ما صليت شيصير" → "حكم ترك الصلاة وعقوبة تارك الصلاة"
+- "هل اكدر اشرب بيرة" → "حكم شرب الخمر والمسكرات"
+
+السؤال: "${questionInArabic}"
+
+أعطني فقط عبارة البحث الفقهية بدون أي شرح إضافي.` }]
+                        }],
+                        generationConfig: { temperature: 0.1, maxOutputTokens: 100 }
+                    });
+                    const normalizedQuery = normalizeResponse.response.text()?.trim();
+                    if (normalizedQuery && normalizedQuery.length > 5) {
+                        searchQuery = normalizedQuery;
+                        console.log('🔍 Normalized search query:', searchQuery);
+                    }
+                } catch (e) {
+                    console.warn('⚠️ Fiqh normalization failed, using original question:', e);
+                }
+
+                // Step 4: Search local fatwas data (RAG)
+                const ragContext = await searchFatwas(searchQuery);
+
+                // Step 5: Get the fiqh answer in Arabic with RAG context
+                let promptWithContext = '';
+                if (mode === 'MODE_LITERAL') {
+                    promptWithContext = `[هام جداً: أنت في "الوضع الحرفي". يُمنع التلخيص أو الاستنتاج الذاتي. اعتمد حصراً على النص أدناه. انسخ النص حرفياً وانسخ التوثيق الكامل للمصدر المرفق في السياق بدقة متناهية دون اختلاق أرقام مسألة أو دمج مصادر].\n\nالسؤال: ${questionInArabic}\n\nالسياق:\n${ragContext}`;
+                } else {
+                    promptWithContext = `[هام: أنت في "وضع الفهم". قدم حكماً مختصراً ثم شرحاً مستنداً للنصوص المرفقة أدناه، واقتبس التوثيق الكامل للمصدر المرفق في السياق دون اختلاق أرقام أو التفاف].\n\nالسؤال: ${questionInArabic}\n\nالسياق:\n${ragContext}`;
+                }
+
+                const response = await model.generateContent({
+                    contents: [
+                        ...messages.filter(m => m.role === 'model' || isArabic).map(m => ({
+                            role: m.role,
+                            parts: [{ text: m.text }]
+                        })),
+                        {
+                            role: 'user',
+                            parts: [{ text: promptWithContext }]
+                        }
+                    ],
+                    generationConfig: {
+                        temperature: 0.3,
+                    }
+                });
+
+                text = response.response.text() || "عذراً، لم أتمكن من استخراج إجابة.";
+                logTokenUsage(response, sessionId!, 'fiqh_answer', currentUser?.id);
+
+                // Save to cache for future use
+                const usage = response?.response?.usageMetadata;
+                saveToCache(questionInArabic, mode, text, usage?.promptTokenCount || 0, usage?.candidatesTokenCount || 0);
+            }
+
+            // Step 5: If the original question was not in Arabic, translate the answer back to the user's language
+            if (!isArabic && !wasFromCache) {
                 const langNames: { [key: string]: string } = {
                     'en': 'English', 'fa': 'Persian/Farsi', 'ur': 'Urdu', 'fr': 'French',
                     'es': 'Spanish', 'de': 'German', 'tr': 'Turkish', 'id': 'Indonesian',
@@ -727,6 +1079,7 @@ ${t('welcomeAsk')}`
                     generationConfig: { temperature: 0.2 }
                 });
                 text = translateBackResponse.response.text() || text;
+                logTokenUsage(translateBackResponse, sessionId!, 'translation_back', currentUser?.id);
             }
 
             const modelMessage: Message = { role: 'model', text };
@@ -777,6 +1130,84 @@ ${t('welcomeAsk')}`
             shouldAutoSendRef.current = false;
         }
     }, [isRecording]);
+
+    // --- Auth Screen ---
+    if (!currentUser) {
+        return (
+            <div dir="rtl" className={`flex min-h-screen ${COLORS.bgLight} font-sans relative overflow-hidden flex-col items-center justify-center p-4`}>
+                <div className="absolute inset-0 pointer-events-none bg-pattern z-0 opacity-10" />
+                <div className="relative z-10 w-full max-w-md animate-fade-in-up">
+                    <div className="text-center mb-8">
+                        <div className={`inline-flex items-center justify-center w-20 h-20 rounded-full ${COLORS.primary} shadow-xl mb-4 border-4 border-[#C5A059]`}>
+                            <Scroll className="w-10 h-10 text-white" />
+                        </div>
+                        <h1 className={`text-3xl font-bold ${COLORS.textDark} mb-2 font-serif`}>مساعد الفقيه</h1>
+                        <p className="text-slate-500 text-sm">{authMode === 'login' ? 'تسجيل الدخول' : 'إنشاء حساب جديد'}</p>
+                    </div>
+
+                    <div className="bg-white rounded-2xl shadow-xl p-6 border border-slate-200">
+                        {authError && (
+                            <div className="bg-red-50 border border-red-200 text-red-700 text-sm p-3 rounded-lg mb-4 flex items-center gap-2">
+                                <AlertCircle className="w-4 h-4 shrink-0" />
+                                {authError}
+                            </div>
+                        )}
+
+                        {authMode === 'register' && (
+                            <>
+                                <div className="mb-4">
+                                    <label className="block text-sm font-bold text-slate-700 mb-1.5">الاسم الكامل</label>
+                                    <div className="relative">
+                                        <input type="text" value={authName} onChange={e => setAuthName(e.target.value)} placeholder="أدخل اسمك" className="w-full border border-slate-300 rounded-xl px-4 py-3 pr-10 text-sm focus:ring-2 focus:ring-[#004D40] focus:border-[#004D40] outline-none" />
+                                        <User className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                    </div>
+                                </div>
+                                <div className="mb-4">
+                                    <label className="block text-sm font-bold text-slate-700 mb-1.5">العمل / المهنة</label>
+                                    <div className="relative">
+                                        <select value={authJob} onChange={e => setAuthJob(e.target.value)} className="w-full border border-slate-300 rounded-xl px-4 py-3 pr-10 text-sm focus:ring-2 focus:ring-[#004D40] focus:border-[#004D40] outline-none appearance-none bg-white cursor-pointer">
+                                            <option value="">اختر العمل</option>
+                                            {JOB_OPTIONS.map(j => <option key={j} value={j}>{j}</option>)}
+                                        </select>
+                                        <Briefcase className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                    </div>
+                                </div>
+                            </>
+                        )}
+
+                        <div className="mb-4">
+                            <label className="block text-sm font-bold text-slate-700 mb-1.5">رقم الهاتف (واتساب)</label>
+                            <div className="relative">
+                                <input type="tel" value={authPhone} onChange={e => setAuthPhone(e.target.value)} placeholder="07xxxxxxxxx" className="w-full border border-slate-300 rounded-xl px-4 py-3 pr-10 text-sm focus:ring-2 focus:ring-[#004D40] focus:border-[#004D40] outline-none" dir="ltr" />
+                                <Phone className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                            </div>
+                        </div>
+
+                        <div className="mb-6">
+                            <label className="block text-sm font-bold text-slate-700 mb-1.5">كلمة السر</label>
+                            <div className="relative">
+                                <input type={showAuthPassword ? 'text' : 'password'} value={authPassword} onChange={e => setAuthPassword(e.target.value)} placeholder="••••••" className="w-full border border-slate-300 rounded-xl px-4 py-3 pr-10 text-sm focus:ring-2 focus:ring-[#004D40] focus:border-[#004D40] outline-none" dir="ltr" />
+                                <Lock className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                <button type="button" onClick={() => setShowAuthPassword(!showAuthPassword)} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs">
+                                    {showAuthPassword ? 'إخفاء' : 'عرض'}
+                                </button>
+                            </div>
+                        </div>
+
+                        <button onClick={authMode === 'login' ? handleLogin : handleRegister} className={`w-full ${COLORS.accent} ${COLORS.accentHover} text-white py-3 rounded-xl font-bold shadow-lg transition-all transform hover:scale-[1.02] flex items-center justify-center gap-2`}>
+                            {authMode === 'login' ? <><LogIn className="w-5 h-5" /> تسجيل الدخول</> : <><UserPlus className="w-5 h-5" /> إنشاء حساب</>}
+                        </button>
+
+                        <div className="mt-4 text-center">
+                            <button onClick={() => { setAuthMode(authMode === 'login' ? 'register' : 'login'); setAuthError(''); }} className="text-sm text-[#004D40] hover:text-[#C5A059] font-bold transition-colors">
+                                {authMode === 'login' ? 'ليس لديك حساب؟ إنشاء حساب جديد' : 'لديك حساب؟ تسجيل الدخول'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     // --- Intro Screen Component ---
     if (!hasStarted) {
@@ -952,14 +1383,14 @@ ${t('welcomeAsk')}`
                 <div className="flex-1 overflow-y-auto px-4 py-2 custom-scrollbar">
 
                     {/* Chat History Section */}
-                    {sessions.length > 0 && (
+                    {sessions.filter(s => s.userId === currentUser?.id).length > 0 && (
                         <div className="mb-6">
                             <h3 className={`text-xs font-semibold text-teal-300 uppercase tracking-wider mb-3 flex items-center gap-2 px-2`}>
                                 <History className="w-3 h-3" />
                                 {t('history')}
                             </h3>
                             <div className="space-y-1">
-                                {sessions.map(session => (
+                                {sessions.filter(s => s.userId === currentUser?.id).map(session => (
                                     <div
                                         key={session.id}
                                         onClick={() => loadSession(session)}
@@ -1060,6 +1491,22 @@ ${t('welcomeAsk')}`
                 </div>
 
                 <div className="p-4 bg-[#00352c] border-t border-teal-800">
+                    {currentUser && (
+                        <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-2 overflow-hidden">
+                                <div className="w-8 h-8 rounded-full bg-[#C5A059] flex items-center justify-center shrink-0">
+                                    <User className="w-4 h-4 text-white" />
+                                </div>
+                                <div className="min-w-0">
+                                    <p className="text-sm font-bold text-white truncate">{currentUser.name}</p>
+                                    <p className="text-[10px] text-teal-300 truncate">{currentUser.job}</p>
+                                </div>
+                            </div>
+                            <button onClick={handleLogout} className="p-2 hover:bg-red-900/30 rounded-lg text-teal-300 hover:text-red-300 transition-all" title="تسجيل الخروج">
+                                <LogOut className="w-4 h-4" />
+                            </button>
+                        </div>
+                    )}
                     <div className="text-[10px] text-center text-teal-300 leading-relaxed px-2">
                         {t('footer')}
                         <br />
@@ -1118,6 +1565,29 @@ ${t('welcomeAsk')}`
                                 <div className={`markdown-body text-sm sm:text-base leading-relaxed sm:leading-loose ${isRTL ? 'text-right' : 'text-left'} ${msg.role === 'user' ? 'text-white' : ''}`}>
                                     <ReactMarkdown>{msg.text}</ReactMarkdown>
                                 </div>
+                                {/* Feedback Buttons for AI messages */}
+                                {msg.role === 'model' && idx > 0 && (
+                                    <div className={`flex items-center gap-1 mt-3 pt-2 border-t border-slate-100 ${isRTL ? 'justify-start' : 'justify-start'}`}>
+                                        <button onClick={() => handleCopy(msg.text, idx)} className={`p-1.5 rounded-lg text-xs flex items-center gap-1 transition-all ${copiedIdx === idx ? 'bg-green-100 text-green-600' : 'text-slate-400 hover:text-[#004D40] hover:bg-slate-100'}`} title="نسخ">
+                                            {copiedIdx === idx ? <><CheckCircle2 className="w-3.5 h-3.5" /> تم النسخ</> : <><Copy className="w-3.5 h-3.5" /> نسخ</>}
+                                        </button>
+                                        {(() => {
+                                            let q = '';
+                                            for (let i = idx - 1; i >= 0; i--) { if (messages[i].role === 'user') { q = messages[i].text; break; } }
+                                            const fbKey = `${q}::${msg.text.substring(0, 50)}`;
+                                            return (
+                                                <>
+                                                    <button onClick={() => handleFeedback(idx, 'like')} className={`p-1.5 rounded-lg text-xs flex items-center gap-1 transition-all ${feedbackMap[fbKey] === 'like' ? 'bg-green-100 text-green-600' : 'text-slate-400 hover:text-green-600 hover:bg-green-50'}`} title="أعجبني">
+                                                        <ThumbsUp className="w-3.5 h-3.5" />
+                                                    </button>
+                                                    <button onClick={() => handleFeedback(idx, 'dislike')} className={`p-1.5 rounded-lg text-xs flex items-center gap-1 transition-all ${feedbackMap[fbKey] === 'dislike' ? 'bg-red-100 text-red-500' : 'text-slate-400 hover:text-red-500 hover:bg-red-50'}`} title="لم يعجبني">
+                                                        <ThumbsDown className="w-3.5 h-3.5" />
+                                                    </button>
+                                                </>
+                                            );
+                                        })()}
+                                    </div>
+                                )}
                             </div>
                         </div>
                     ))}
