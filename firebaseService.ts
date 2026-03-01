@@ -17,14 +17,7 @@ import {
 // Types (matching index.tsx)
 // ========================
 
-interface UserProfile {
-    id: string;
-    phone: string;
-    password: string;
-    name: string;
-    job: string;
-    createdAt: number;
-}
+
 
 interface Message {
     role: 'user' | 'model';
@@ -44,8 +37,6 @@ interface ChatSession {
 
 interface FeedbackEntry {
     id: string;
-    userId: string;
-    userName: string;
     sessionId: string;
     question: string;
     answer: string;
@@ -62,7 +53,6 @@ interface TokenLogEntry {
     outputTokens: number;
     totalTokens: number;
     type: string;
-    userId?: string;
     timestamp: number;
     inputTokensSaved?: number;
     outputTokensSaved?: number;
@@ -78,39 +68,7 @@ interface CacheEntry {
     hitCount: number;
 }
 
-// ========================
-// USERS
-// ========================
 
-export const getUsers = async (): Promise<UserProfile[]> => {
-    try {
-        const snap = await getDocs(collection(db, 'users'));
-        return snap.docs.map(d => d.data() as UserProfile);
-    } catch (e) {
-        console.error('Firebase: getUsers error', e);
-        return [];
-    }
-};
-
-export const getUserByPhone = async (phone: string): Promise<UserProfile | null> => {
-    try {
-        const q = query(collection(db, 'users'), where('phone', '==', phone));
-        const snap = await getDocs(q);
-        if (snap.empty) return null;
-        return snap.docs[0].data() as UserProfile;
-    } catch (e) {
-        console.error('Firebase: getUserByPhone error', e);
-        return null;
-    }
-};
-
-export const addUser = async (user: UserProfile): Promise<void> => {
-    try {
-        await setDoc(doc(db, 'users', user.id), user);
-    } catch (e) {
-        console.error('Firebase: addUser error', e);
-    }
-};
 
 // ========================
 // SESSIONS

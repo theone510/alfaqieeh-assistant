@@ -4,7 +4,6 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { BookOpen, MessageCircle, Info, Send, Eraser, User, Bot, AlertCircle, Settings, FileText, Scroll, ArrowRight, CheckCircle2, History, Plus, Trash2, MessageSquare, Mic, StopCircle, Download, Menu, X, Globe, Copy, ThumbsUp, ThumbsDown, LogOut, Phone, Lock, Briefcase, UserPlus, LogIn } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import {
-    getUsers, getUserByPhone, addUser as addUserToDb,
     getSessions as getSessionsFromDb, saveSession as saveSessionToDb, deleteSessionFromDb,
     getFeedback, saveFeedback, deleteFeedbackByFilter,
     addTokenLog,
@@ -227,7 +226,7 @@ const searchFatwas = async (query: string): Promise<string> => {
 // --- Token Usage Tracking ---
 const MODEL_NAME = 'gemini-2.5-flash';
 
-const logTokenUsage = (response: any, sessionId: string, type: string, userId?: string) => {
+const logTokenUsage = (response: any, sessionId: string, type: string) => {
     try {
         const usage = response?.response?.usageMetadata;
         if (!usage) return;
@@ -240,7 +239,6 @@ const logTokenUsage = (response: any, sessionId: string, type: string, userId?: 
             outputTokens: usage.candidatesTokenCount || 0,
             totalTokens: usage.totalTokenCount || 0,
             type,
-            userId: userId || '',
             timestamp: Date.now(),
         };
 
@@ -594,25 +592,16 @@ const App = () => {
     const isRTL = rtlLanguages.includes(language);
 
 
-    // --- User Auth State ---
-    const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
-    const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
-    const [authPhone, setAuthPhone] = useState('');
-    const [authPassword, setAuthPassword] = useState('');
-    const [authName, setAuthName] = useState('');
-    const [authJob, setAuthJob] = useState('');
-    const [authError, setAuthError] = useState('');
-    const [showAuthPassword, setShowAuthPassword] = useState(false);
     const [feedbackMap, setFeedbackMap] = useState<Record<string, 'like' | 'dislike'>>({});
     const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
 
-    const JOB_OPTIONS = ['مبلغ ديني', 'باحث أكاديمي', 'موظف', 'كاسب', 'طالب حوزوي', 'طالب جامعي', 'أخرى'];
+    // Track active session IDs in localStorage so users can resume their own sessions on this device
+    const [localSessionIds, setLocalSessionIds] = useState<string[]>([]);
 
-    // Load current user from sessionStorage on mount
     useEffect(() => {
-        const saved = sessionStorage.getItem('faqih_current_user');
-        if (saved) {
-            try { setCurrentUser(JSON.parse(saved)); } catch { }
+        const stored = localStorage.getItem('faqih_local_sessions');
+        if (stored) {
+            try { setLocalSessionIds(JSON.parse(stored)); } catch { }
         }
     }, []);
 
@@ -629,57 +618,8 @@ const App = () => {
         }
     }, [currentSessionId]);
 
-    const handleRegister = async () => {
-        setAuthError('');
-        if (!authPhone.trim() || !authPassword.trim() || !authName.trim() || !authJob.trim()) {
-            setAuthError('يرجى ملء جميع الحقول');
-            return;
-        }
-        const existingUser = await getUserByPhone(authPhone.trim());
-        if (existingUser) {
-            setAuthError('رقم الهاتف مسجل مسبقاً. قم بتسجيل الدخول.');
-            return;
-        }
-        const newUser: UserProfile = {
-            id: crypto.randomUUID(),
-            phone: authPhone.trim(),
-            password: authPassword.trim(),
-            name: authName.trim(),
-            job: authJob.trim(),
-            createdAt: Date.now(),
-        };
-        await addUserToDb(newUser);
-        setCurrentUser(newUser);
-        sessionStorage.setItem('faqih_current_user', JSON.stringify(newUser));
-        setAuthPhone(''); setAuthPassword(''); setAuthName(''); setAuthJob(''); setAuthError('');
-    };
-
-    const handleLogin = async () => {
-        setAuthError('');
-        if (!authPhone.trim() || !authPassword.trim()) {
-            setAuthError('يرجى إدخال رقم الهاتف وكلمة السر');
-            return;
-        }
-        const user = await getUserByPhone(authPhone.trim());
-        if (!user || user.password !== authPassword.trim()) {
-            setAuthError('رقم الهاتف أو كلمة السر غير صحيحة');
-            return;
-        }
-        setCurrentUser(user);
-        sessionStorage.setItem('faqih_current_user', JSON.stringify(user));
-        setAuthPhone(''); setAuthPassword(''); setAuthError('');
-    };
-
-    const handleLogout = () => {
-        setCurrentUser(null);
-        sessionStorage.removeItem('faqih_current_user');
-        setHasStarted(false);
-        setMessages([]);
-        setCurrentSessionId(null);
-    };
-
     const handleFeedback = async (msgIdx: number, type: 'like' | 'dislike') => {
-        if (!currentUser || !currentSessionId) return;
+        if (!currentSessionId) return;
         // Find the question (previous user message)
         let question = '';
         for (let i = msgIdx - 1; i >= 0; i--) {
@@ -700,14 +640,12 @@ const App = () => {
             await deleteFeedbackByFilter(currentSessionId, question, answer.substring(0, 50));
             const entry: FeedbackEntry = {
                 id: crypto.randomUUID(),
-                userId: currentUser.id,
-                userName: currentUser.name,
                 sessionId: currentSessionId,
                 question,
                 answer,
                 mode,
                 feedback: type,
-                timestamp: Date.now(),
+                timestamp: Date.now(), // Use current timestamp
             };
             await saveFeedback(entry);
             setFeedbackMap(prev => ({ ...prev, [key]: type }));
@@ -791,14 +729,18 @@ const App = () => {
         }
     };
 
-    // Load sessions from Firebase on mount
+    // Load sessions from Firebase on mount based on local storage tracking
     useEffect(() => {
-        getSessionsFromDb(currentUser?.id).then(loadedSessions => {
-            if (loadedSessions.length > 0) {
-                setSessions(loadedSessions);
+        if (localSessionIds.length === 0) return;
+
+        // We fetch all sessions, then filter to the ones this device created
+        getSessionsFromDb().then(loadedSessions => {
+            const deviceSessions = loadedSessions.filter(s => localSessionIds.includes(s.id));
+            if (deviceSessions.length > 0) {
+                setSessions(deviceSessions);
             }
         }).catch(e => console.error('Failed to load sessions from Firebase', e));
-    }, [currentUser]);
+    }, [localSessionIds]);
 
     // Initial Welcome Message Logic - Only when starting fresh in a session
     useEffect(() => {
@@ -905,10 +847,14 @@ ${t('welcomeAsk')}`
                 messages: updatedMessages,
                 mode: mode,
                 date: Date.now(),
-                userId: currentUser?.id,
             };
             newSessionsList = [newSession, ...newSessionsList];
             saveSessionToDb(newSession);
+
+            // Save to local device tracking
+            const newLocalIds = [...localSessionIds, sessionId];
+            setLocalSessionIds(newLocalIds);
+            localStorage.setItem('faqih_local_sessions', JSON.stringify(newLocalIds));
         } else {
             // Update existing session
             newSessionsList = newSessionsList.map(s =>
@@ -947,7 +893,7 @@ ${t('welcomeAsk')}`
                     }]
                 });
                 questionInArabic = translateToArabicResponse.response.text() || userMessageText;
-                logTokenUsage(translateToArabicResponse, sessionId!, 'translation_to_ar', currentUser?.id);
+                logTokenUsage(translateToArabicResponse, sessionId!, 'translation_to_ar');
             }
 
 
@@ -1031,7 +977,7 @@ ${t('welcomeAsk')}`
                 });
 
                 text = response.response.text() || "عذراً، لم أتمكن من استخراج إجابة.";
-                logTokenUsage(response, sessionId!, 'fiqh_answer', currentUser?.id);
+                logTokenUsage(response, sessionId!, 'fiqh_answer');
 
                 // Save to cache for future use
                 const usage = response?.response?.usageMetadata;
@@ -1056,7 +1002,7 @@ ${t('welcomeAsk')}`
                     generationConfig: { temperature: 0.2 }
                 });
                 text = translateBackResponse.response.text() || text;
-                logTokenUsage(translateBackResponse, sessionId!, 'translation_back', currentUser?.id);
+                logTokenUsage(translateBackResponse, sessionId!, 'translation_back');
             }
 
             const modelMessage: Message = { role: 'model', text };
@@ -1113,83 +1059,7 @@ ${t('welcomeAsk')}`
         }
     }, [isRecording]);
 
-    // --- Auth Screen ---
-    if (!currentUser) {
-        return (
-            <div dir="rtl" className={`flex min-h-screen ${COLORS.bgLight} font-sans relative overflow-hidden flex-col items-center justify-center p-4`}>
-                <div className="absolute inset-0 pointer-events-none bg-pattern z-0 opacity-10" />
-                <div className="relative z-10 w-full max-w-md animate-fade-in-up">
-                    <div className="text-center mb-8">
-                        <div className={`inline-flex items-center justify-center w-20 h-20 rounded-full ${COLORS.primary} shadow-xl mb-4 border-4 border-[#C5A059]`}>
-                            <Scroll className="w-10 h-10 text-white" />
-                        </div>
-                        <h1 className={`text-3xl font-bold ${COLORS.textDark} mb-2 font-serif`}>مساعد الفقيه</h1>
-                        <p className="text-slate-500 text-sm">{authMode === 'login' ? 'تسجيل الدخول' : 'إنشاء حساب جديد'}</p>
-                    </div>
 
-                    <div className="bg-white rounded-2xl shadow-xl p-6 border border-slate-200">
-                        {authError && (
-                            <div className="bg-red-50 border border-red-200 text-red-700 text-sm p-3 rounded-lg mb-4 flex items-center gap-2">
-                                <AlertCircle className="w-4 h-4 shrink-0" />
-                                {authError}
-                            </div>
-                        )}
-
-                        {authMode === 'register' && (
-                            <>
-                                <div className="mb-4">
-                                    <label className="block text-sm font-bold text-slate-700 mb-1.5">الاسم الكامل</label>
-                                    <div className="relative">
-                                        <input type="text" value={authName} onChange={e => setAuthName(e.target.value)} placeholder="أدخل اسمك" className="w-full border border-slate-300 rounded-xl px-4 py-3 pr-10 text-sm focus:ring-2 focus:ring-[#004D40] focus:border-[#004D40] outline-none" />
-                                        <User className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                                    </div>
-                                </div>
-                                <div className="mb-4">
-                                    <label className="block text-sm font-bold text-slate-700 mb-1.5">العمل / المهنة</label>
-                                    <div className="relative">
-                                        <select value={authJob} onChange={e => setAuthJob(e.target.value)} className="w-full border border-slate-300 rounded-xl px-4 py-3 pr-10 text-sm focus:ring-2 focus:ring-[#004D40] focus:border-[#004D40] outline-none appearance-none bg-white cursor-pointer">
-                                            <option value="">اختر العمل</option>
-                                            {JOB_OPTIONS.map(j => <option key={j} value={j}>{j}</option>)}
-                                        </select>
-                                        <Briefcase className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                                    </div>
-                                </div>
-                            </>
-                        )}
-
-                        <div className="mb-4">
-                            <label className="block text-sm font-bold text-slate-700 mb-1.5">رقم الهاتف (واتساب)</label>
-                            <div className="relative">
-                                <input type="tel" value={authPhone} onChange={e => setAuthPhone(e.target.value)} placeholder="07xxxxxxxxx" className="w-full border border-slate-300 rounded-xl px-4 py-3 pr-10 text-sm focus:ring-2 focus:ring-[#004D40] focus:border-[#004D40] outline-none" dir="ltr" />
-                                <Phone className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                            </div>
-                        </div>
-
-                        <div className="mb-6">
-                            <label className="block text-sm font-bold text-slate-700 mb-1.5">كلمة السر</label>
-                            <div className="relative">
-                                <input type={showAuthPassword ? 'text' : 'password'} value={authPassword} onChange={e => setAuthPassword(e.target.value)} placeholder="••••••" className="w-full border border-slate-300 rounded-xl px-4 py-3 pr-10 text-sm focus:ring-2 focus:ring-[#004D40] focus:border-[#004D40] outline-none" dir="ltr" />
-                                <Lock className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                                <button type="button" onClick={() => setShowAuthPassword(!showAuthPassword)} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs">
-                                    {showAuthPassword ? 'إخفاء' : 'عرض'}
-                                </button>
-                            </div>
-                        </div>
-
-                        <button onClick={authMode === 'login' ? handleLogin : handleRegister} className={`w-full ${COLORS.accent} ${COLORS.accentHover} text-white py-3 rounded-xl font-bold shadow-lg transition-all transform hover:scale-[1.02] flex items-center justify-center gap-2`}>
-                            {authMode === 'login' ? <><LogIn className="w-5 h-5" /> تسجيل الدخول</> : <><UserPlus className="w-5 h-5" /> إنشاء حساب</>}
-                        </button>
-
-                        <div className="mt-4 text-center">
-                            <button onClick={() => { setAuthMode(authMode === 'login' ? 'register' : 'login'); setAuthError(''); }} className="text-sm text-[#004D40] hover:text-[#C5A059] font-bold transition-colors">
-                                {authMode === 'login' ? 'ليس لديك حساب؟ إنشاء حساب جديد' : 'لديك حساب؟ تسجيل الدخول'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        );
-    }
 
     // --- Intro Screen Component ---
     if (!hasStarted) {
@@ -1365,14 +1235,14 @@ ${t('welcomeAsk')}`
                 <div className="flex-1 overflow-y-auto px-4 py-2 custom-scrollbar">
 
                     {/* Chat History Section */}
-                    {sessions.filter(s => s.userId === currentUser?.id).length > 0 && (
+                    {sessions.length > 0 && (
                         <div className="mb-6">
                             <h3 className={`text-xs font-semibold text-teal-300 uppercase tracking-wider mb-3 flex items-center gap-2 px-2`}>
                                 <History className="w-3 h-3" />
                                 {t('history')}
                             </h3>
                             <div className="space-y-1">
-                                {sessions.filter(s => s.userId === currentUser?.id).map(session => (
+                                {sessions.map(session => (
                                     <div
                                         key={session.id}
                                         onClick={() => loadSession(session)}
@@ -1473,22 +1343,6 @@ ${t('welcomeAsk')}`
                 </div>
 
                 <div className="p-4 bg-[#00352c] border-t border-teal-800">
-                    {currentUser && (
-                        <div className="flex items-center justify-between mb-3">
-                            <div className="flex items-center gap-2 overflow-hidden">
-                                <div className="w-8 h-8 rounded-full bg-[#C5A059] flex items-center justify-center shrink-0">
-                                    <User className="w-4 h-4 text-white" />
-                                </div>
-                                <div className="min-w-0">
-                                    <p className="text-sm font-bold text-white truncate">{currentUser.name}</p>
-                                    <p className="text-[10px] text-teal-300 truncate">{currentUser.job}</p>
-                                </div>
-                            </div>
-                            <button onClick={handleLogout} className="p-2 hover:bg-red-900/30 rounded-lg text-teal-300 hover:text-red-300 transition-all" title="تسجيل الخروج">
-                                <LogOut className="w-4 h-4" />
-                            </button>
-                        </div>
-                    )}
                     <div className="text-[10px] text-center text-teal-300 leading-relaxed px-2">
                         {t('footer')}
                         <br />

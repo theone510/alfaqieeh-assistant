@@ -323,16 +323,14 @@
                     setIsLoading(true);
                     Promise.all([
                         loadCollection('tokenLogs'),
-                        loadCollection('users'),
                         loadCollection('sessions'),
                         loadCollection('feedback'),
                         loadCacheCollection()
                     ]).then(function (results) {
                         setLogs(results[0]);
-                        setUsers(results[1]);
-                        setChatSessions(results[2]);
-                        setFeedback(results[3]);
-                        setCacheData(results[4]);
+                        setChatSessions(results[1]);
+                        setFeedback(results[2]);
+                        setCacheData(results[3]);
                         setIsLoading(false);
                     }).catch(function (e) {
                         console.error('Error loading data from Firebase', e);
@@ -376,13 +374,12 @@
                 return { totalCached: totalCached, totalHits: totalHits, inputSaved: inputSaved, outputSaved: outputSaved, costSaved: costSaved };
             }, [cacheData, logs]);
 
-            function getUserStats(userId) {
-                var userLogs = logs.filter(function (l) { return l.userId === userId; });
-                var userSessions = chatSessions.filter(function (s) { return s.userId === userId; });
-                var input = userLogs.reduce(function (s, l) { return s + (l.inputTokens || 0); }, 0);
-                var output = userLogs.reduce(function (s, l) { return s + (l.outputTokens || 0); }, 0);
-                var cost = userLogs.reduce(function (s, l) { return s + calcCost(l.inputTokens || 0, l.outputTokens || 0, l.model); }, 0);
-                return { input: input, output: output, cost: cost, sessions: userSessions.length, requests: userLogs.length };
+            function getSessionStats(sessionId) {
+                var sessionLogs = logs.filter(function (l) { return l.sessionId === sessionId; });
+                var input = sessionLogs.reduce(function (s, l) { return s + (l.inputTokens || 0); }, 0);
+                var output = sessionLogs.reduce(function (s, l) { return s + (l.outputTokens || 0); }, 0);
+                var cost = sessionLogs.reduce(function (s, l) { return s + calcCost(l.inputTokens || 0, l.outputTokens || 0, l.model); }, 0);
+                return { input: input, output: output, cost: cost, requests: sessionLogs.length };
             }
 
             function handleReset() {
@@ -419,13 +416,12 @@
             var totalTokens = stats.totalInput + stats.totalOutput;
             var inputPct = totalTokens > 0 ? (stats.totalInput / totalTokens * 100) : 0;
 
-            var selectedUser = users.find(function (u) { return u.id === selectedUserId; });
-            var selectedUserSessions = chatSessions.filter(function (s) { return s.userId === selectedUserId; });
-            var selectedUserStats = selectedUserId ? getUserStats(selectedUserId) : null;
+            var selectedSession = chatSessions.find(function (s) { return s.id === selectedUserId; });
+            var selectedSessionStats = selectedUserId ? getSessionStats(selectedUserId) : null;
 
             var tabs = [
                 { id: 'overview', label: 'نظرة عامة', icon: '📊' },
-                { id: 'users', label: 'المستخدمين (' + users.length + ')', icon: '👥' },
+                { id: 'sessions', label: 'الجلسات (' + chatSessions.length + ')', icon: '💬' },
                 { id: 'dislikes', label: 'التقييمات السلبية (' + stats.dislikeCount + ')', icon: '👎' },
                 { id: 'cache', label: 'الكاش (' + cacheStats.totalCached + ')', icon: '⚡' },
                 { id: 'pricing', label: 'أسعار النماذج', icon: '💰' },
@@ -453,7 +449,7 @@
                     tabs.map(function (tab) {
                         return h('button', {
                             key: tab.id,
-                            onClick: function () { setActiveTab(tab.id); if (tab.id !== 'users') setSelectedUserId(null); },
+                            onClick: function () { setActiveTab(tab.id); if (tab.id !== 'sessions') setSelectedUserId(null); },
                             className: 'px-4 py-2.5 rounded-xl text-sm font-medium transition-all flex items-center gap-2 tab-btn ' + (activeTab === tab.id ? 'btn-gold' : 'glass-card text-white/60 hover:text-white')
                         }, h('span', null, tab.icon), ' ', tab.label);
                     })
@@ -466,8 +462,8 @@
                             { title: 'توكنات الإدخال', value: formatNumber(stats.totalInput), icon: '📥', color: '#3b82f6', sub: inputPct.toFixed(1) + '% من الإجمالي' },
                             { title: 'توكنات الإخراج', value: formatNumber(stats.totalOutput), icon: '📤', color: '#22c55e', sub: (100 - inputPct).toFixed(1) + '% من الإجمالي' },
                             { title: 'التكلفة الإجمالية', value: formatCost(stats.totalCost), icon: '💵', color: '#C5A059', sub: stats.totalRequests + ' طلب API' },
-                            { title: 'المستخدمين', value: String(users.length), icon: '👥', color: '#a855f7', sub: stats.likeCount + ' 👍 / ' + stats.dislikeCount + ' 👎' },
-                            { title: 'الجلسات', value: String(stats.uniqueSessions.length), icon: '💬', color: '#ec4899', sub: chatSessions.length + ' محادثة' },
+                            { title: 'الجلسات النشطة', value: String(chatSessions.length), icon: '👥', color: '#a855f7', sub: stats.likeCount + ' 👍 / ' + stats.dislikeCount + ' 👎' },
+                            { title: 'الجلسات الفريدة (Tokens)', value: String(stats.uniqueSessions.length), icon: '💬', color: '#ec4899', sub: 'الجلسات التي كلّفت توكنات' },
                         ].map(function (stat, i) {
                             return h('div', { key: i, className: 'stat-card rounded-2xl p-5 animate-in', style: { animationDelay: (0.1 + i * 0.05) + 's' } },
                                 h('div', { className: 'flex items-center justify-between mb-3' },
@@ -520,42 +516,40 @@
                     )
                 ),
 
-                // ===== USERS TAB =====
-                activeTab === 'users' && h('div', { className: 'space-y-6 animate-in' },
+                // ===== SESSIONS TAB =====
+                activeTab === 'sessions' && h('div', { className: 'space-y-6 animate-in' },
                     !selectedUserId
                         ? h(React.Fragment, null,
                             h('div', { className: 'glass-card rounded-2xl overflow-hidden' },
                                 h('div', { className: 'p-5 border-b border-white/5' },
-                                    h('h3', { className: 'text-sm font-bold text-white/80' }, 'المستخدمين المسجلين (' + users.length + ')')
+                                    h('h3', { className: 'text-sm font-bold text-white/80' }, 'الجلسات (' + chatSessions.length + ')')
                                 ),
-                                users.length === 0
-                                    ? h('div', { className: 'p-8 text-center text-white/30 text-sm' }, 'لا يوجد مستخدمين مسجلين بعد.')
+                                chatSessions.length === 0
+                                    ? h('div', { className: 'p-8 text-center text-white/30 text-sm' }, 'لا توجد جلسات دردشة بعد.')
                                     : h('div', { className: 'overflow-x-auto' },
                                         h('table', { className: 'w-full text-sm' },
                                             h('thead', null,
                                                 h('tr', { className: 'text-white/40 text-xs' },
-                                                    h('th', { className: 'text-right p-3 font-medium' }, 'الاسم'),
-                                                    h('th', { className: 'text-right p-3 font-medium' }, 'العمل'),
-                                                    h('th', { className: 'text-right p-3 font-medium' }, 'الهاتف'),
-                                                    h('th', { className: 'text-right p-3 font-medium' }, 'المحادثات'),
-                                                    h('th', { className: 'text-right p-3 font-medium' }, 'التوكنات'),
+                                                    h('th', { className: 'text-right p-3 font-medium' }, 'العنوان'),
+                                                    h('th', { className: 'text-right p-3 font-medium' }, 'الوضع'),
+                                                    h('th', { className: 'text-right p-3 font-medium' }, 'الرسائل'),
+                                                    h('th', { className: 'text-right p-3 font-medium' }, 'توكنات'),
                                                     h('th', { className: 'text-right p-3 font-medium' }, 'التكلفة'),
-                                                    h('th', { className: 'text-right p-3 font-medium' }, 'تاريخ التسجيل'),
+                                                    h('th', { className: 'text-right p-3 font-medium' }, 'تاريخ الجلسة'),
                                                     h('th', { className: 'text-right p-3 font-medium' }, '')
                                                 )
                                             ),
                                             h('tbody', null,
-                                                users.map(function (user) {
-                                                    var uStats = getUserStats(user.id);
-                                                    return h('tr', { key: user.id, className: 'table-row cursor-pointer', onClick: function () { setSelectedUserId(user.id); } },
-                                                        h('td', { className: 'p-3 font-bold text-white/80' }, user.name),
-                                                        h('td', { className: 'p-3' }, h('span', { className: 'badge', style: { background: 'rgba(168,85,247,0.15)', color: '#c084fc', border: '1px solid rgba(168,85,247,0.3)' } }, user.job)),
-                                                        h('td', { className: 'p-3 text-white/60 font-mono text-xs' }, user.phone),
-                                                        h('td', { className: 'p-3 text-blue-400 font-bold' }, uStats.sessions),
-                                                        h('td', { className: 'p-3 text-green-400' }, formatNumber(uStats.input + uStats.output)),
-                                                        h('td', { className: 'p-3 font-bold text-[#C5A059]' }, formatCost(uStats.cost)),
-                                                        h('td', { className: 'p-3 text-white/40 text-xs' }, formatDate(user.createdAt)),
-                                                        h('td', { className: 'p-3' }, h('span', { className: 'text-[#C5A059] text-xs hover:underline cursor-pointer' }, 'عرض المحادثات →'))
+                                                chatSessions.map(function (session) {
+                                                    var sStats = getSessionStats(session.id);
+                                                    return h('tr', { key: session.id, className: 'table-row cursor-pointer flex-col md:table-row', onClick: function () { setSelectedUserId(session.id); } },
+                                                        h('td', { className: 'p-3 font-bold text-white/80 max-w-[200px] truncate block md:table-cell' }, session.title),
+                                                        h('td', { className: 'p-3' }, h('span', { className: 'badge', style: { background: 'rgba(168,85,247,0.15)', color: '#c084fc', border: '1px solid rgba(168,85,247,0.3)' } }, session.mode === 'MODE_LITERAL' ? 'حرفي' : 'فهم')),
+                                                        h('td', { className: 'p-3 text-blue-400 font-bold block md:table-cell' }, session.messages ? session.messages.length : 0),
+                                                        h('td', { className: 'p-3 text-green-400 block md:table-cell' }, formatNumber(sStats.input + sStats.output)),
+                                                        h('td', { className: 'p-3 font-bold text-[#C5A059] block md:table-cell' }, formatCost(sStats.cost)),
+                                                        h('td', { className: 'p-3 text-white/40 text-xs block md:table-cell' }, formatDate(session.date)),
+                                                        h('td', { className: 'p-3 block md:table-cell' }, h('span', { className: 'text-[#C5A059] text-xs hover:underline cursor-pointer' }, 'عرض التفاصيل →'))
                                                     );
                                                 })
                                             )
@@ -563,45 +557,36 @@
                                     )
                             )
                         )
-                        // Selected user detail
+                        // Selected session detail
                         : h(React.Fragment, null,
                             h('div', { className: 'glass-card rounded-2xl p-5 mb-4' },
                                 h('div', { className: 'flex items-center justify-between flex-wrap gap-4' },
                                     h('div', { className: 'flex items-center gap-4' },
                                         h('button', { onClick: function () { setSelectedUserId(null); }, className: 'text-white/60 hover:text-white transition p-2 rounded-lg hover:bg-white/5 tab-btn' }, '← رجوع'),
                                         h('div', null,
-                                            h('h3', { className: 'text-lg font-bold text-white' }, selectedUser ? selectedUser.name : ''),
-                                            h('p', { className: 'text-white/40 text-xs' }, (selectedUser ? selectedUser.job : '') + ' • ' + (selectedUser ? selectedUser.phone : ''))
+                                            h('h3', { className: 'text-lg font-bold text-white' }, selectedSession ? selectedSession.title : ''),
+                                            h('p', { className: 'text-white/40 text-xs mt-1' }, selectedSession ? formatDate(selectedSession.date) : '')
                                         )
                                     ),
-                                    selectedUserStats && h('div', { className: 'flex gap-6 text-xs' },
-                                        h('div', { className: 'text-center' }, h('p', { className: 'text-white/40' }, 'محادثات'), h('p', { className: 'text-lg font-bold text-blue-400' }, selectedUserStats.sessions)),
-                                        h('div', { className: 'text-center' }, h('p', { className: 'text-white/40' }, 'توكنات'), h('p', { className: 'text-lg font-bold text-green-400' }, formatNumber(selectedUserStats.input + selectedUserStats.output))),
-                                        h('div', { className: 'text-center' }, h('p', { className: 'text-white/40' }, 'تكلفة'), h('p', { className: 'text-lg font-bold text-[#C5A059]' }, formatCost(selectedUserStats.cost)))
+                                    selectedSessionStats && h('div', { className: 'flex gap-6 text-xs' },
+                                        h('div', { className: 'text-center' }, h('p', { className: 'text-white/40' }, 'رسائل'), h('p', { className: 'text-lg font-bold text-blue-400' }, selectedSession.messages ? selectedSession.messages.length : 0)),
+                                        h('div', { className: 'text-center' }, h('p', { className: 'text-white/40' }, 'توكنات'), h('p', { className: 'text-lg font-bold text-green-400' }, formatNumber(selectedSessionStats.input + selectedSessionStats.output))),
+                                        h('div', { className: 'text-center' }, h('p', { className: 'text-white/40' }, 'تكلفة'), h('p', { className: 'text-lg font-bold text-[#C5A059]' }, formatCost(selectedSessionStats.cost)))
                                     )
                                 )
                             ),
-                            selectedUserSessions.length === 0
-                                ? h('div', { className: 'glass-card rounded-2xl p-8 text-center text-white/30 text-sm' }, 'لا توجد محادثات لهذا المستخدم.')
-                                : selectedUserSessions.map(function (session) {
-                                    return h('div', { key: session.id, className: 'glass-card rounded-2xl overflow-hidden mb-4' },
-                                        h('div', { className: 'p-4 border-b border-white/5 flex items-center justify-between' },
-                                            h('div', null,
-                                                h('h4', { className: 'text-sm font-bold text-white/80' }, session.title),
-                                                h('p', { className: 'text-xs text-white/40' }, formatDate(session.date) + ' • ' + (session.mode === 'MODE_LITERAL' ? 'حرفي' : 'فهم'))
-                                            ),
-                                            h('span', { className: 'badge', style: { background: 'rgba(59,130,246,0.15)', color: '#60a5fa', border: '1px solid rgba(59,130,246,0.3)' } }, (session.messages ? session.messages.length : 0) + ' رسالة')
-                                        ),
-                                        h('div', { className: 'p-4 space-y-3 max-h-96 overflow-y-auto' },
-                                            (session.messages || []).map(function (msg, i) {
-                                                return h('div', { key: i, className: 'p-3 rounded-xl text-sm ' + (msg.role === 'user' ? 'chat-bubble-user text-blue-300 mr-8' : 'chat-bubble-model text-white/70 ml-8') },
-                                                    h('p', { className: 'text-[10px] text-white/30 mb-1 font-bold' }, msg.role === 'user' ? '👤 المستخدم' : '🤖 مساعد الفقيه'),
-                                                    h('p', { className: 'whitespace-pre-wrap text-xs leading-relaxed', style: { maxHeight: '200px', overflow: 'auto' } }, (msg.text || '').substring(0, 500) + ((msg.text || '').length > 500 ? '...' : ''))
-                                                );
-                                            })
-                                        )
-                                    );
-                                })
+                            (!selectedSession || !selectedSession.messages || selectedSession.messages.length === 0)
+                                ? h('div', { className: 'glass-card rounded-2xl p-8 text-center text-white/30 text-sm' }, 'لا توجد رسائل.')
+                                : h('div', { className: 'glass-card rounded-2xl overflow-hidden mb-4' },
+                                    h('div', { className: 'p-4 space-y-3 max-h-[600px] overflow-y-auto' },
+                                        selectedSession.messages.map(function (msg, i) {
+                                            return h('div', { key: i, className: 'p-4 rounded-xl text-sm ' + (msg.role === 'user' ? 'chat-bubble-user text-blue-300 ml-8' : 'chat-bubble-model text-white/80 mr-8') },
+                                                h('p', { className: 'text-xs text-white/40 mb-2 font-bold' }, msg.role === 'user' ? '👤 المستخدم' : '🤖 مساعد الفقيه'),
+                                                h('p', { className: 'whitespace-pre-wrap leading-loose text-sm' }, msg.text)
+                                            );
+                                        })
+                                    )
+                                )
                         )
                 ),
 
@@ -623,7 +608,7 @@
                                             h('div', { className: 'flex items-center gap-3' },
                                                 h('div', { className: 'w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center text-red-400 text-sm' }, '👎'),
                                                 h('div', null,
-                                                    h('p', { className: 'text-sm font-bold text-white/80' }, fb.userName),
+                                                    h('p', { className: 'text-sm font-bold text-white/80 block max-w-[200px] truncate' }, fb.sessionId || 'جلسة مجهولة'),
                                                     h('p', { className: 'text-xs text-white/40' }, (fb.mode === 'MODE_LITERAL' ? 'حرفي' : 'فهم') + ' • ' + formatDate(fb.timestamp))
                                                 )
                                             )
