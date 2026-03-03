@@ -4,11 +4,11 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 // Initialize Clients
 const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
 const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || '';
-const geminiKey = process.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY || '';
+const geminiKey = process.env.GEMINI_API_KEY || '';
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 const genAI = new GoogleGenerativeAI(geminiKey);
-const model = genAI.getGenerativeModel({ model: "text-embedding-004" });
+const model = genAI.getGenerativeModel({ model: "models/gemini-embedding-001" });
 
 export default async function handler(req, res) {
     if (req.method !== 'POST') {
@@ -22,15 +22,16 @@ export default async function handler(req, res) {
     }
 
     try {
-        // 1. Generate Embedding for the query (3072 dimensions)
+        // 1. Generate Embedding for the query
         const embeddingResult = await model.embedContent(query);
-        const embedding = embeddingResult.embedding.values;
+        // text-embedding-004 is Matryoshka compliant, so we can slice to 768
+        const embedding = embeddingResult.embedding.values.slice(0, 768);
 
         // 2. Search Supabase using RPC function
         const { data, error } = await supabase.rpc('match_fatwas', {
             query_embedding: embedding,
-            match_threshold: 0.5,
-            match_count: 8
+            match_threshold: 0.7, // Adjust threshold as needed
+            match_count: 5
         });
 
         if (error) {

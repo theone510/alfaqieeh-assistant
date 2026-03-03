@@ -26,19 +26,19 @@ export default defineConfig(({ mode }) => {
                   const { query } = JSON.parse(body);
                   const supabaseUrl = env.VITE_SUPABASE_URL || '';
                   const supabaseKey = env.VITE_SUPABASE_ANON_KEY || '';
-                  const geminiKey = env.VITE_GEMINI_API_KEY || env.GEMINI_API_KEY || '';
+                  const geminiKey = env.GEMINI_API_KEY || '';
 
                   const supabase = createClient(supabaseUrl, supabaseKey);
                   const genAI = new GoogleGenerativeAI(geminiKey);
-                  const model = genAI.getGenerativeModel({ model: "text-embedding-004" });
+                  const model = genAI.getGenerativeModel({ model: "models/gemini-embedding-001" });
 
                   const embeddingResult = await model.embedContent(query);
-                  const embedding = embeddingResult.embedding.values;
+                  const embedding = embeddingResult.embedding.values.slice(0, 768);
 
                   const { data, error } = await supabase.rpc('match_fatwas', {
                     query_embedding: embedding,
                     match_threshold: 0.5,
-                    match_count: 8
+                    match_count: 5
                   });
 
                   if (error) throw error;

@@ -280,16 +280,14 @@
 
         const TYPE_LABELS = {
             'translation_to_ar': 'ترجمة → عربي',
-            'fiqh_literal': 'بحث حرفي (2.0)',
-            'fiqh_understanding': 'فهم مستنبط (2.5)',
+            'fiqh_search': 'بحث فقهي',
             'translation_back': 'ترجمة ← الرد',
             'cache_hit': 'من الكاش ✨',
         };
 
         const TYPE_COLORS = {
             'translation_to_ar': { bg: 'rgba(59,130,246,0.1)', text: '#60a5fa', border: 'rgba(59,130,246,0.2)' },
-            'fiqh_literal': { bg: 'rgba(16,185,129,0.1)', text: '#34d399', border: 'rgba(16,185,129,0.2)' },
-            'fiqh_understanding': { bg: 'rgba(139,92,246,0.1)', text: '#a78bfa', border: 'rgba(139,92,246,0.2)' },
+            'fiqh_search': { bg: 'rgba(16,185,129,0.1)', text: '#34d399', border: 'rgba(16,185,129,0.2)' },
             'translation_back': { bg: 'rgba(245,158,11,0.1)', text: '#fbbf24', border: 'rgba(245,158,11,0.2)' },
             'cache_hit': { bg: 'rgba(236,72,153,0.1)', text: '#f472b6', border: 'rgba(236,72,153,0.2)' },
         };
@@ -298,7 +296,7 @@
         const formatCost = (cost) => '$' + cost.toFixed(4);
         const formatDate = (ts) => new Date(ts).toLocaleDateString('ar-IQ', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
         const calcCost = (inputTokens, outputTokens, model) => {
-            const pricing = MODEL_PRICING[model] || MODEL_PRICING['gemini-2.5-flash'];
+            const pricing = MODEL_PRICING[model] || MODEL_PRICING['gemini-1.5-flash'];
             return (inputTokens / 1000000) * pricing.input + (outputTokens / 1000000) * pricing.output;
         };
 
@@ -374,7 +372,7 @@
                 var cacheLogs = logs.filter(function (l) { return l.type === 'cache_hit'; });
                 var inputSaved = cacheLogs.reduce(function (s, l) { return s + (l.inputTokensSaved || 0); }, 0);
                 var outputSaved = cacheLogs.reduce(function (s, l) { return s + (l.outputTokensSaved || 0); }, 0);
-                var costSaved = calcCost(inputSaved, outputSaved, 'gemini-2.5-flash');
+                var costSaved = calcCost(inputSaved, outputSaved, 'gemini-1.5-flash');
                 return { totalCached: totalCached, totalHits: totalHits, inputSaved: inputSaved, outputSaved: outputSaved, costSaved: costSaved };
             }, [cacheData, logs]);
 
@@ -494,34 +492,19 @@
                             h('span', { className: 'flex items-center gap-1.5' }, h('span', { className: 'w-2.5 h-2.5 rounded-full bg-green-500 inline-block' }), h('span', { className: 'text-white/50' }, 'إخراج: ' + formatNumber(stats.totalOutput)))
                         )
                     ),
-                    // By Type
                     h('div', { className: 'glass-card rounded-2xl p-6 animate-in', style: { animationDelay: '0.35s' } },
-                        h('h3', { className: 'text-sm font-bold text-white/80 mb-4' }, 'التفصيل حسب نوع الطلب'),
-                        Object.keys(stats.byType).length === 0
-                            ? h('p', { className: 'text-white/30 text-sm text-center py-8' }, 'لا توجد بيانات بعد.')
-                            : h('div', { className: 'grid grid-cols-1 md:grid-cols-4 gap-4' },
-                                Object.entries(stats.byType).map(function (entry) {
-                                    var type = entry[0], data = entry[1];
-                                    var colors = TYPE_COLORS[type] || { bg: 'rgba(255,255,255,0.05)', text: '#fff', border: 'rgba(255,255,255,0.1)' };
-
-                                    // Calculate cost using the correct model for the type if possible
-                                    var modelForType = 'gemini-2.5-flash';
-
-                                    var cost = calcCost(data.input, data.output, modelForType);
-                                    return h('div', { key: type, className: 'rounded-xl p-4', style: { background: colors.bg, border: '1px solid ' + colors.border } },
-                                        h('div', { className: 'flex items-center justify-between mb-3' },
-                                            h('span', { className: 'text-sm font-bold', style: { color: colors.text } }, TYPE_LABELS[type] || type),
-                                            h('span', { className: 'badge', style: { background: colors.bg, color: colors.text, border: '1px solid ' + colors.border } }, data.count + ' طلب')
-                                        ),
-                                        h('div', { className: 'space-y-1.5 text-xs' },
-                                            h('div', { className: 'flex justify-between text-white/50' }, h('span', null, 'إدخال'), h('span', { className: 'text-white/80 font-medium' }, formatNumber(data.input))),
-                                            h('div', { className: 'flex justify-between text-white/50' }, h('span', null, 'إخراج'), h('span', { className: 'text-white/80 font-medium' }, formatNumber(data.output))),
-                                            h('div', { className: 'flex justify-between text-white/50 pt-1.5 mt-1.5', style: { borderTop: '1px solid ' + colors.border } }, h('span', null, 'التكلفة'), h('span', { className: 'font-bold', style: { color: colors.text } }, formatCost(cost)))
-                                        )
-                                    );
-                                })
+                        h('h3', { className: 'text-sm font-bold text-white/80 mb-4' }, 'الإحصائيات الإجمالية'),
+                        h('div', { className: 'grid grid-cols-1 md:grid-cols-2 gap-4' },
+                            h('div', { className: 'rounded-xl p-4 stat-card' },
+                                h('p', { className: 'text-white/40 text-xs mb-1' }, 'إجمالي الطلبات'),
+                                h('p', { className: 'text-2xl font-bold text-white' }, formatNumber(stats.totalRequests))
+                            ),
+                            h('div', { className: 'rounded-xl p-4 stat-card' },
+                                h('p', { className: 'text-white/40 text-xs mb-1' }, 'التكلفة الإجمالية التقديرية'),
+                                h('p', { className: 'text-2xl font-bold text-[#C5A059]' }, formatCost(stats.totalCost))
                             )
-                    )
+                        )
+                    ),
                 ),
 
                 // ===== SESSIONS TAB =====
@@ -691,16 +674,13 @@
                         h('div', { className: 'grid grid-cols-1 md:grid-cols-2 gap-4' },
                             Object.entries(MODEL_PRICING).map(function (pair) {
                                 var key = pair[0], model = pair[1];
-                                var isHighlighted = key === 'gemini-2.5-flash';
-                                var isActiveLiteral = isHighlighted;
-                                var isActiveUnderstanding = isHighlighted;
+                                var isHighlighted = key === 'gemini-1.5-flash';
+                                var isActiveLiteral = false;
+                                var isActiveUnderstanding = false;
                                 return h('div', { key: key, className: 'rounded-xl p-5 transition-all ' + (isHighlighted ? 'cost-highlight' : 'stat-card') },
                                     h('div', { className: 'flex items-center justify-between mb-4' },
                                         h('h4', { className: 'text-base font-bold ' + (isHighlighted ? 'text-[#C5A059]' : 'text-white/80') }, model.label),
-                                        h('div', { className: 'flex gap-2' },
-                                            key === 'gemini-2.5-flash' && h('span', { className: 'badge', style: { background: 'rgba(16,185,129,0.15)', color: '#34d399', border: '1px solid rgba(16,185,129,0.3)' } }, '● مُفعّل للحرفي'),
-                                            key === 'gemini-2.5-flash' && h('span', { className: 'badge', style: { background: 'rgba(139,92,246,0.15)', color: '#a78bfa', border: '1px solid rgba(139,92,246,0.3)' } }, '● مُفعّل للفهم')
-                                        )
+                                        key === 'gemini-1.5-flash' && h('span', { className: 'badge', style: { background: 'rgba(197, 160, 89, 0.15)', color: '#C5A059', border: '1px solid rgba(197, 160, 89, 0.3)' } }, '● الموديل النشط')
                                     ),
                                     h('div', { className: 'grid grid-cols-2 gap-4' },
                                         h('div', null, h('p', { className: 'text-white/40 text-xs mb-1' }, 'تكلفة الإدخال'), h('p', { className: 'text-xl font-bold text-blue-400' }, '$' + model.input), h('p', { className: 'text-white/30 text-xs mt-0.5' }, '/ مليون توكن')),
