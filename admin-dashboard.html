@@ -274,6 +274,7 @@
             'gemini-2.5-flash': { input: 0.30, output: 2.50, label: 'Gemini 2.5 Flash' },
             'gemini-2.5-pro': { input: 1.25, output: 10.00, label: 'Gemini 2.5 Pro' },
             'gemini-2.0-flash': { input: 0.10, output: 0.40, label: 'Gemini 2.0 Flash' },
+            'gemini-2.5-flash-lite': { input: 0.10, output: 0.40, label: 'Gemini 2.5 Flash Lite' },
             'gemini-3-flash-preview': { input: 0.30, output: 2.50, label: 'Gemini 3 Flash Preview' },
         };
 
@@ -297,7 +298,7 @@
         const formatCost = (cost) => '$' + cost.toFixed(4);
         const formatDate = (ts) => new Date(ts).toLocaleDateString('ar-IQ', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
         const calcCost = (inputTokens, outputTokens, model) => {
-            const pricing = MODEL_PRICING[model] || MODEL_PRICING['gemini-2.0-flash'];
+            const pricing = MODEL_PRICING[model] || MODEL_PRICING['gemini-2.5-flash-lite'];
             return (inputTokens / 1000000) * pricing.input + (outputTokens / 1000000) * pricing.output;
         };
 
@@ -373,7 +374,7 @@
                 var cacheLogs = logs.filter(function (l) { return l.type === 'cache_hit'; });
                 var inputSaved = cacheLogs.reduce(function (s, l) { return s + (l.inputTokensSaved || 0); }, 0);
                 var outputSaved = cacheLogs.reduce(function (s, l) { return s + (l.outputTokensSaved || 0); }, 0);
-                var costSaved = calcCost(inputSaved, outputSaved, 'gemini-2.0-flash');
+                var costSaved = calcCost(inputSaved, outputSaved, 'gemini-2.5-flash-lite');
                 return { totalCached: totalCached, totalHits: totalHits, inputSaved: inputSaved, outputSaved: outputSaved, costSaved: costSaved };
             }, [cacheData, logs]);
 
@@ -692,7 +693,7 @@
                         h('div', { className: 'grid grid-cols-1 md:grid-cols-2 gap-4' },
                             Object.entries(MODEL_PRICING).map(function (pair) {
                                 var key = pair[0], model = pair[1];
-                                var isActiveLiteral = key === 'gemini-2.0-flash';
+                                var isActiveLiteral = key === 'gemini-2.5-flash-lite';
                                 var isActiveUnderstanding = key === 'gemini-2.5-flash';
                                 var isHighlighted = isActiveLiteral || isActiveUnderstanding;
                                 return h('div', { key: key, className: 'rounded-xl p-5 transition-all ' + (isHighlighted ? 'cost-highlight' : 'stat-card') },

@@ -984,7 +984,7 @@ ${t('welcomeAsk')}`
         }
         setSessions(newSessionsList);
 
-        const activeModelName = activeMode === 'MODE_LITERAL' ? 'gemini-2.0-flash' : 'gemini-2.5-flash';
+        const activeModelName = activeMode === 'MODE_LITERAL' ? 'gemini-2.5-flash-lite' : 'gemini-2.5-flash';
 
         try {
             // Step 1: Detect if the language is Arabic using Regex OR if the UI language is already Arabic
