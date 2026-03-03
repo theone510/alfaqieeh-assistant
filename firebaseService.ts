@@ -204,7 +204,8 @@ export const getCacheEntries = async (): Promise<Record<string, CacheEntry>> => 
 
 export const getCacheEntry = async (key: string): Promise<CacheEntry | null> => {
     try {
-        const docRef = doc(db, 'answerCache', key);
+        const safeKey = encodeURIComponent(key);
+        const docRef = doc(db, 'answerCache', safeKey);
         const snap = await getDoc(docRef);
         if (!snap.exists()) return null;
         return snap.data() as CacheEntry;
