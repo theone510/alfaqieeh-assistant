@@ -351,6 +351,16 @@ const translations: Record<Language, Record<string, string>> = {
         quickPrompt1: 'ما هي مبطلات الصلاة؟',
         quickPrompt2: 'ما حكم بيع الذهب بالتقسيط؟',
         quickPrompt3: 'ما هي شروط الخمس؟',
+        loadingStep0: 'جاري البحث في المصادر الفقهية...',
+        loadingStep1: 'يتم استخراج النصوص ذات الصلة...',
+        loadingStep2: 'جاري تحليل ومطابقة الفتاوى...',
+        loadingStep3: 'يتم صياغة الحكم الشرعي الدقيق...',
+        loadingStep4: 'تتم المراجعة النهائية للإجابة...',
+        copy: 'نسخ',
+        copied: 'تم النسخ',
+        like: 'أعجبني',
+        dislike: 'لم يعجبني',
+        voiceRecording: 'تسجيل صوتي',
     },
     en: {
         appName: 'Faqih Assistant',
@@ -387,6 +397,16 @@ const translations: Record<Language, Record<string, string>> = {
         quickPrompt1: 'What invalidates prayer?',
         quickPrompt2: 'What is the ruling on selling gold in installments?',
         quickPrompt3: 'What are the conditions for Khums?',
+        loadingStep0: 'Searching religious sources...',
+        loadingStep1: 'Extracting relevant texts...',
+        loadingStep2: 'Analyzing and matching fatwas...',
+        loadingStep3: 'Formulating the precise ruling...',
+        loadingStep4: 'Final review of the answer...',
+        copy: 'Copy',
+        copied: 'Copied',
+        like: 'Like',
+        dislike: 'Dislike',
+        voiceRecording: 'Voice recording',
     },
     fa: {
         appName: 'دستیار فقیه',
@@ -397,7 +417,7 @@ const translations: Record<Language, Record<string, string>> = {
         literalModeTag: 'جستجوی دقیق',
         understandingMode: 'حالت فهم و استنباط',
         understandingModeDesc: 'توضیح و تفسیر مسئله را بر اساس قواعد کلی و متون مشابه ارائه می‌دهد. مناسب برای مسائل پیچیده که نیاز به تفصیل دارند.',
-        understandingModeTag: 'تحلیل و توضیح',
+        understandingModeTag: 'تحليل و توضیح',
         startNow: 'شروع کنید',
         previousSessions: 'ادامه گفتگوی قبلی',
         newChat: 'گفتگوی جدید',
@@ -409,8 +429,8 @@ const translations: Record<Language, Record<string, string>> = {
         footer: 'واحد توسعه مجموعه‌ها - بخش سیستم‌های اطلاعات و مدیریت دانش',
         footer2: 'بخش امور فکری و فرهنگی - آستان مقدس حسینی',
         modeLiteral: 'حالت: متن حرفی (دقیق)',
-        modeUnderstanding: 'حالت: فهم و استنباط (توضیحی)',
-        welcomeMessage: 'السلام علیکم و رحمة الله و برکاته',
+        modeUnderstanding: 'حالت: فهم و استنباط (توضيحي)',
+        welcomeMessage: 'السلام عليكم و رحمة الله و بركاته',
         welcomeIntro: 'من "دستیار فقیه" هستم، متخصص در فتاوای حضرت آیت‌الله سیستانی (دام ظله).',
         welcomeMode: 'شما انتخاب کرده‌اید',
         welcomeChangeMode: 'می‌توانید حالت را در هر زمان از نوار کناری تغییر دهید.',
@@ -418,11 +438,21 @@ const translations: Record<Language, Record<string, string>> = {
         errorMessage: 'خطای فنی: مشکلی در اتصال به سرور رخ داد. لطفاً دوباره تلاش کنید.',
         noSpeechSupport: 'متأسفانه مرورگر شما از ضبط صدا پشتیبانی نمی‌کند.',
         noAnswer: 'متأسفانه نتوانستم پاسخی استخراج کنم.',
-        language: 'زبان نمایش',
+        language: 'زبان نمايش',
         delete: 'حذف',
         quickPrompt1: 'مبطلات نماز چیست؟',
         quickPrompt2: 'حکم فروش طلا به صورت اقساطی چیست؟',
         quickPrompt3: 'شرایط خمس چیست؟',
+        loadingStep0: 'در حال جستجو در منابع فقهی...',
+        loadingStep1: 'استخراج متون مرتبط...',
+        loadingStep2: 'تجزیه و تحلیل و مطابقت فتاوا...',
+        loadingStep3: 'تنظیم حکم شرعی دقیق...',
+        loadingStep4: 'بررسی نهایی پاسخ...',
+        copy: 'کپی',
+        copied: 'کپی شد',
+        like: 'پسندیدم',
+        dislike: 'نپسندیدم',
+        voiceRecording: 'ضبط صدا',
     },
     ur: {
         appName: 'فقیہ اسسٹنٹ',
@@ -458,6 +488,16 @@ const translations: Record<Language, Record<string, string>> = {
         quickPrompt1: 'نماز کو کیا چیز باطل کرتی ہے؟',
         quickPrompt2: 'قسطوں پر سونا بیچنے کا کیا حکم ہے؟',
         quickPrompt3: 'خمس کی کیا شرائط ہیں؟',
+        loadingStep0: 'فقہی ذرائع میں تلاش جاری ہے...',
+        loadingStep1: 'متعلقہ تحریریں نکالی جا رہی ہیں...',
+        loadingStep2: 'فتاویٰ کا تجزیہ اور مطابقت جاری ہے...',
+        loadingStep3: 'درست شرعی حکم کی تشکیل کی جا رہی ہے...',
+        loadingStep4: 'جواب کا آخری جائزہ لیا جا رہا ہے...',
+        copy: 'کاپی',
+        copied: 'کاپی ہو گیا',
+        like: 'پسند ہے',
+        dislike: 'ناپسند ہے',
+        voiceRecording: 'آواز کی ریکارڈنگ',
     },
     tr: {
         appName: 'Fakih Asistanı',
@@ -494,6 +534,16 @@ const translations: Record<Language, Record<string, string>> = {
         quickPrompt1: 'Namazı bozan şeyler nelerdir?',
         quickPrompt2: 'Taksitle altın satmanın hükmü nedir?',
         quickPrompt3: 'Humusun şartları nelerdir?',
+        loadingStep0: 'Fıkhi kaynaklarda aranıyor...',
+        loadingStep1: 'İlgili metinler çıkarılıyor...',
+        loadingStep2: 'Fetvalar analiz ediliyor ve eşleştiriliyor...',
+        loadingStep3: 'Kesin fıkhi hüküm formüle ediliyor...',
+        loadingStep4: 'Cevabın son incelemesi yapılıyor...',
+        copy: 'Kopyala',
+        copied: 'Kopyalandı',
+        like: 'Beğen',
+        dislike: 'Beğenme',
+        voiceRecording: 'Ses kaydı',
     },
     fr: {
         appName: 'Assistant Faqih',
@@ -530,6 +580,16 @@ const translations: Record<Language, Record<string, string>> = {
         quickPrompt1: 'Qu\'est-ce qui invalide la prière ?',
         quickPrompt2: 'Quelle est la règle concernant la vente d\'or à tempérament ?',
         quickPrompt3: 'Quelles sont les conditions du Khums ?',
+        loadingStep0: 'Recherche dans les sources religieuses...',
+        loadingStep1: 'Extraction des textes pertinents...',
+        loadingStep2: 'Analyse et comparaison des fatwas...',
+        loadingStep3: 'Formulation de la règle précise...',
+        loadingStep4: 'Examen final de la réponse...',
+        copy: 'Copier',
+        copied: 'Copié',
+        like: 'J\'aime',
+        dislike: 'Je n\'aime pas',
+        voiceRecording: 'Enregistrement vocal',
     },
     hi: {
         appName: 'फ़क़ीह सहायक',
@@ -566,6 +626,16 @@ const translations: Record<Language, Record<string, string>> = {
         quickPrompt1: 'प्रार्थना (नमाज़) को क्या अमान्य करता है?',
         quickPrompt2: 'किश्तों पर सोना बेचने का क्या हुक्म है?',
         quickPrompt3: 'खुम्स की शर्तें क्या हैं?',
+        loadingStep0: 'धार्मिक स्रोतों में खोज की जा रही है...',
+        loadingStep1: 'प्रासंगिक पाठ निकाला जा रहा है...',
+        loadingStep2: 'फतवों का विश्लेषण और मिलान किया जा रहा है...',
+        loadingStep3: 'सटीक नियम तैयार किया जा रहा है...',
+        loadingStep4: 'उत्तर की अंतिम समीक्षा की जा रही है...',
+        copy: 'कॉपी',
+        copied: 'कॉपी किया गया',
+        like: 'पसंद करें',
+        dislike: 'नापसंद करें',
+        voiceRecording: 'आवाज रिकॉर्डिंग',
     },
 };
 
@@ -1073,7 +1143,7 @@ ${t('welcomeAsk')}`
             console.error(error);
             const errorMessage: Message = {
                 role: 'model',
-                text: "**خطأ تقني:** حدثت مشكلة أثناء الاتصال بالخادم. يرجى المحاولة مرة أخرى."
+                text: `**${t('errorMessage')}**`
             };
             setMessages(prev => [...prev, errorMessage]);
         } finally {
@@ -1468,8 +1538,8 @@ ${t('welcomeAsk')}`
                                 {/* Feedback Buttons for AI messages */}
                                 {msg.role === 'model' && idx > 0 && (
                                     <div className={`flex items-center gap-1 mt-3 pt-2 border-t border-slate-100 ${isRTL ? 'justify-start' : 'justify-start'}`}>
-                                        <button onClick={() => handleCopy(msg.text, idx)} className={`p-1.5 rounded-lg text-xs flex items-center gap-1 transition-all ${copiedIdx === idx ? 'bg-green-100 text-green-600' : 'text-slate-400 hover:text-[#004D40] hover:bg-slate-100'}`} title="نسخ">
-                                            {copiedIdx === idx ? <><CheckCircle2 className="w-3.5 h-3.5" /> تم النسخ</> : <><Copy className="w-3.5 h-3.5" /> نسخ</>}
+                                        <button onClick={() => handleCopy(msg.text, idx)} className={`p-1.5 rounded-lg text-xs flex items-center gap-1 transition-all ${copiedIdx === idx ? 'bg-green-100 text-green-600' : 'text-slate-400 hover:text-[#004D40] hover:bg-slate-100'}`} title={t('copy')}>
+                                            {copiedIdx === idx ? <><CheckCircle2 className="w-3.5 h-3.5" /> {t('copied')}</> : <><Copy className="w-3.5 h-3.5" /> {t('copy')}</>}
                                         </button>
                                         {(() => {
                                             let q = '';
@@ -1477,10 +1547,10 @@ ${t('welcomeAsk')}`
                                             const fbKey = `${q}::${msg.text.substring(0, 50)}`;
                                             return (
                                                 <>
-                                                    <button onClick={() => handleFeedback(idx, 'like')} className={`p-1.5 rounded-lg text-xs flex items-center gap-1 transition-all ${feedbackMap[fbKey] === 'like' ? 'bg-green-100 text-green-600' : 'text-slate-400 hover:text-green-600 hover:bg-green-50'}`} title="أعجبني">
+                                                    <button onClick={() => handleFeedback(idx, 'like')} className={`p-1.5 rounded-lg text-xs flex items-center gap-1 transition-all ${feedbackMap[fbKey] === 'like' ? 'bg-green-100 text-green-600' : 'text-slate-400 hover:text-green-600 hover:bg-green-50'}`} title={t('like')}>
                                                         <ThumbsUp className="w-3.5 h-3.5" />
                                                     </button>
-                                                    <button onClick={() => handleFeedback(idx, 'dislike')} className={`p-1.5 rounded-lg text-xs flex items-center gap-1 transition-all ${feedbackMap[fbKey] === 'dislike' ? 'bg-red-100 text-red-500' : 'text-slate-400 hover:text-red-500 hover:bg-red-50'}`} title="لم يعجبني">
+                                                    <button onClick={() => handleFeedback(idx, 'dislike')} className={`p-1.5 rounded-lg text-xs flex items-center gap-1 transition-all ${feedbackMap[fbKey] === 'dislike' ? 'bg-red-100 text-red-500' : 'text-slate-400 hover:text-red-500 hover:bg-red-50'}`} title={t('dislike')}>
                                                         <ThumbsDown className="w-3.5 h-3.5" />
                                                     </button>
                                                 </>
@@ -1505,11 +1575,7 @@ ${t('welcomeAsk')}`
                                         <span className="w-2 h-2 bg-[#C5A059] rounded-full animate-bounce delay-150"></span>
                                     </div>
                                     <span className="animate-pulse text-teal-800">
-                                        {loadingStep === 0 && 'جاري البحث في المصادر الفقهية...'}
-                                        {loadingStep === 1 && 'يتم استخراج النصوص ذات الصلة...'}
-                                        {loadingStep === 2 && 'جاري تحليل ومطابقة الفتاوى...'}
-                                        {loadingStep === 3 && 'يتم صياغة الحكم الشرعي الدقيق...'}
-                                        {loadingStep === 4 && 'تتم المراجعة النهائية للإجابة...'}
+                                        {t(`loadingStep${loadingStep}`)}
                                     </span>
                                 </div>
                             </div>
@@ -1543,7 +1609,7 @@ ${t('welcomeAsk')}`
                                     ? 'bg-red-500 hover:bg-red-600 text-white animate-pulse border-red-400 glow-red'
                                     : 'bg-white text-slate-500 hover:text-[#004D40] hover:bg-slate-100 border-slate-200'
                                     }`}
-                                title="Voice recording"
+                                title={t('voiceRecording')}
                             >
                                 {isRecording ? <StopCircle className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
                             </button>
