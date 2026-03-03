@@ -562,13 +562,13 @@ const rtlLanguages: Language[] = ['ar', 'fa', 'ur'];
 
 // Colors Constant
 const COLORS = {
-    primary: 'bg-[#004D40]', // Deep Shrine Teal
-    primaryHover: 'hover:bg-[#00695C]',
-    primaryLight: 'bg-[#E0F2F1]',
-    accent: 'bg-[#C5A059]', // Shrine Gold
+    primary: 'bg-gradient-to-br from-[#004D40] to-[#00695C]', // Deep Shrine Teal Gradient
+    primaryHover: 'hover:from-[#00695C] hover:to-[#00796B]',
+    primaryLight: 'bg-gradient-to-br from-[#E0F2F1] to-[#B2DFDB]',
+    accent: 'bg-gradient-to-r from-[#C5A059] to-[#D4AF37]', // Shrine Gold Gradient
     accentText: 'text-[#C5A059]',
     accentBorder: 'border-[#C5A059]',
-    accentHover: 'hover:bg-[#B08D55]',
+    accentHover: 'hover:from-[#B08D55] hover:to-[#C5A059]',
     bgLight: 'bg-[#FDFBF7]', // Cream
     textDark: 'text-[#004D40]',
 };
@@ -580,6 +580,7 @@ const App = () => {
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [loadingStep, setLoadingStep] = useState(0);
     const [mode, setMode] = useState<Mode>('MODE_LITERAL');
     const [hasStarted, setHasStarted] = useState(false);
     const [apiKey, setApiKey] = useState(import.meta.env.VITE_GEMINI_API_KEY || '');
@@ -787,6 +788,18 @@ ${t('welcomeAsk')}`
         startNewSession(selectedMode);
     };
 
+    // Start a new chat flow from a Quick Prompt
+    const handleQuickPrompt = (promptText: string, selectedMode: Mode) => {
+        setMode(selectedMode);
+        setHasStarted(true);
+        startNewSession(selectedMode);
+
+        // Pass the prompt text and mode directly to handleSend
+        setTimeout(() => {
+            handleSend(promptText, selectedMode);
+        }, 100);
+    };
+
     const startNewSession = (selectedMode: Mode = mode) => {
         setMessages([]);
         setMode(selectedMode);
@@ -815,22 +828,34 @@ ${t('welcomeAsk')}`
         setIsSidebarOpen(false); // Close sidebar on mobile
     };
 
-    const handleSend = async () => {
-        console.log("handleSend called", { input: input.trim(), isLoading });
-        if (!input.trim() || isLoading) {
-            console.log("handleSend returning early", { input: input.trim(), isLoading });
+    const handleSend = async (overrideInput?: string, overrideMode?: Mode) => {
+        const textToProcess = overrideInput || input;
+        const activeMode = overrideMode || mode;
+
+        console.log("handleSend called", { input: textToProcess.trim(), isLoading });
+        if (!textToProcess.trim() || isLoading) {
+            console.log("handleSend returning early", { input: textToProcess.trim(), isLoading });
             return;
         }
 
-        const userMessageText = input.trim();
+        const userMessageText = textToProcess.trim();
         const newMessage: Message = { role: 'user', text: userMessageText };
-        setInput('');
+
+        if (!overrideInput) {
+            setInput('');
+        }
         setIsLoading(true);
+        setLoadingStep(0);
         console.log("handleSend proceeding", { userMessageText });
 
         // Update Messages State
         const updatedMessages = [...messages, newMessage];
         setMessages(updatedMessages);
+
+        // Dynamic Loading Steps
+        const loadingInterval = setInterval(() => {
+            setLoadingStep(prev => (prev + 1) % 5);
+        }, 2000);
 
         // Session Management
         let sessionId = currentSessionId;
@@ -845,7 +870,7 @@ ${t('welcomeAsk')}`
                 id: sessionId,
                 title: userMessageText.substring(0, 40) + (userMessageText.length > 40 ? '...' : ''),
                 messages: updatedMessages,
-                mode: mode,
+                mode: activeMode,
                 date: Date.now(),
             };
             newSessionsList = [newSession, ...newSessionsList];
@@ -898,7 +923,7 @@ ${t('welcomeAsk')}`
 
 
             // --- CACHE CHECK ---
-            const cachedAnswer = await checkCacheAsync(questionInArabic, mode);
+            const cachedAnswer = await checkCacheAsync(questionInArabic, activeMode);
             let text: string;
             let wasFromCache = false;
 
@@ -908,7 +933,7 @@ ${t('welcomeAsk')}`
                 text = cachedAnswer.answer;
                 wasFromCache = true;
                 // Log the tokens saved
-                const cKey = getCacheKey(questionInArabic, mode);
+                const cKey = getCacheKey(questionInArabic, activeMode);
                 const newHitCount = (cachedAnswer.hitCount || 0) + 1;
                 updateCacheHitCount(cKey, newHitCount);
                 logCacheHit(sessionId!, cachedAnswer.inputTokens || 0, cachedAnswer.outputTokens || 0);
@@ -954,7 +979,7 @@ ${t('welcomeAsk')}`
 
                 // Step 5: Get the fiqh answer in Arabic with RAG context
                 let promptWithContext = '';
-                if (mode === 'MODE_LITERAL') {
+                if (activeMode === 'MODE_LITERAL') {
                     promptWithContext = `[هام جداً: أنت في "الوضع الحرفي". يُمنع التلخيص أو الاستنتاج الذاتي. اعتمد حصراً على النص أدناه. انسخ النص حرفياً وانسخ التوثيق الكامل للمصدر المرفق في السياق بدقة متناهية دون اختلاق أرقام مسألة أو دمج مصادر].\n\nالسؤال: ${questionInArabic}\n\nالسياق:\n${ragContext}`;
                 } else {
                     promptWithContext = `[هام: أنت في "وضع الفهم". قدم حكماً مختصراً ثم شرحاً مستنداً للنصوص المرفقة أدناه، واقتبس التوثيق الكامل للمصدر المرفق في السياق دون اختلاق أرقام أو التفاف].\n\nالسؤال: ${questionInArabic}\n\nالسياق:\n${ragContext}`;
@@ -981,7 +1006,7 @@ ${t('welcomeAsk')}`
 
                 // Save to cache for future use
                 const usage = response?.response?.usageMetadata;
-                saveToCacheAsync(questionInArabic, mode, text, usage?.promptTokenCount || 0, usage?.candidatesTokenCount || 0);
+                saveToCacheAsync(questionInArabic, activeMode, text, usage?.promptTokenCount || 0, usage?.candidatesTokenCount || 0);
             }
 
             // Step 5: If the original question was not in Arabic, translate the answer back to the user's language
@@ -1031,7 +1056,9 @@ ${t('welcomeAsk')}`
             };
             setMessages(prev => [...prev, errorMessage]);
         } finally {
+            clearInterval(loadingInterval);
             setIsLoading(false);
+            setLoadingStep(0);
         }
     };
 
@@ -1148,6 +1175,25 @@ ${t('welcomeAsk')}`
                                 <ArrowRight className={`w-4 h-4 ${isRTL ? 'mr-1 rotate-180' : 'ml-1'}`} />
                             </div>
                         </button>
+                    </div>
+
+                    {/* Quick Prompts Suggestions */}
+                    <div className="max-w-3xl mx-auto mb-10 w-full animate-fade-in-up delay-100">
+                        <div className="flex flex-wrap justify-center gap-2">
+                            {language === 'ar' && (
+                                <>
+                                    <button onClick={() => handleQuickPrompt("ما هي مبطلات الصلاة؟", 'MODE_UNDERSTANDING')} className="bg-white/80 backdrop-blur border border-teal-100/50 hover:border-[#C5A059] text-teal-800 px-4 py-2 rounded-full text-sm shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 whitespace-nowrap">
+                                        ما هي مبطلات الصلاة؟
+                                    </button>
+                                    <button onClick={() => handleQuickPrompt("ما حكم بيع الذهب بالتقسيط؟", 'MODE_LITERAL')} className="bg-white/80 backdrop-blur border border-teal-100/50 hover:border-[#C5A059] text-teal-800 px-4 py-2 rounded-full text-sm shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 whitespace-nowrap">
+                                        ما حكم بيع الذهب بالتقسيط؟
+                                    </button>
+                                    <button onClick={() => handleQuickPrompt("ما هي شروط الخمس؟", 'MODE_UNDERSTANDING')} className="bg-white/80 backdrop-blur border border-teal-100/50 hover:border-[#C5A059] text-teal-800 px-4 py-2 rounded-full text-sm shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 whitespace-nowrap">
+                                        ما هي شروط الخمس؟
+                                    </button>
+                                </>
+                            )}
+                        </div>
                     </div>
 
                     {/* Previous Sessions in Intro */}
@@ -1429,16 +1475,24 @@ ${t('welcomeAsk')}`
                     ))}
 
                     {isLoading && (
-                        <div className="flex gap-4">
-                            <div className="w-10 h-10 rounded-full bg-white border-2 border-[#C5A059] text-[#004D40] flex items-center justify-center shrink-0 shadow-md">
-                                <Scroll className="w-5 h-5" />
+                        <div className="flex gap-4 animate-fade-in-up">
+                            <div className="w-10 h-10 rounded-full bg-white border-2 border-[#C5A059] text-[#004D40] flex items-center justify-center shrink-0 shadow-[0_0_15px_rgba(197,160,89,0.3)]">
+                                <Scroll className="w-5 h-5 animate-pulse" />
                             </div>
-                            <div className={`bg-white ${isRTL ? 'border-r-4' : 'border-l-4'} border-[#C5A059] rounded-2xl ${isRTL ? 'rounded-tl-none' : 'rounded-tr-none'} px-6 py-4 shadow-sm`}>
-                                <div className="flex items-center gap-2 text-teal-700 text-sm font-semibold">
-                                    <span className="w-2 h-2 bg-[#C5A059] rounded-full animate-bounce"></span>
-                                    <span className="w-2 h-2 bg-[#C5A059] rounded-full animate-bounce delay-75"></span>
-                                    <span className="w-2 h-2 bg-[#C5A059] rounded-full animate-bounce delay-150"></span>
-                                    {t('searching')}
+                            <div className={`bg-gray-50/80 backdrop-blur-sm border ${isRTL ? 'border-r-4' : 'border-l-4'} border-[#C5A059] border-y-slate-200 border-x-slate-200 rounded-2xl ${isRTL ? 'rounded-tl-none' : 'rounded-tr-none'} px-6 py-4 shadow-sm`}>
+                                <div className="flex items-center gap-3 text-teal-700 text-sm font-semibold">
+                                    <div className="flex gap-1">
+                                        <span className="w-2 h-2 bg-[#C5A059] rounded-full animate-bounce"></span>
+                                        <span className="w-2 h-2 bg-[#C5A059] rounded-full animate-bounce delay-75"></span>
+                                        <span className="w-2 h-2 bg-[#C5A059] rounded-full animate-bounce delay-150"></span>
+                                    </div>
+                                    <span className="animate-pulse text-teal-800">
+                                        {loadingStep === 0 && 'جاري البحث في المصادر الفقهية...'}
+                                        {loadingStep === 1 && 'يتم استخراج النصوص ذات الصلة...'}
+                                        {loadingStep === 2 && 'جاري تحليل ومطابقة الفتاوى...'}
+                                        {loadingStep === 3 && 'يتم صياغة الحكم الشرعي الدقيق...'}
+                                        {loadingStep === 4 && 'تتم المراجعة النهائية للإجابة...'}
+                                    </span>
                                 </div>
                             </div>
                         </div>
@@ -1455,20 +1509,20 @@ ${t('welcomeAsk')}`
                             </span>
                         </div>
 
-                        <div className="relative flex items-end gap-2 bg-[#f8fafc] border border-slate-300 rounded-xl p-2 focus-within:ring-2 focus-within:ring-[#004D40] focus-within:border-[#004D40] transition-all shadow-inner">
+                        <div className="relative flex items-end gap-2 bg-[#f8fafc]/80 backdrop-blur-md border border-slate-300 rounded-xl p-2 focus-within:ring-2 focus-within:ring-[#004D40] focus-within:border-[#004D40] transition-all shadow-inner">
                             <textarea
                                 value={input}
                                 onChange={(e) => setInput(e.target.value)}
                                 onKeyDown={handleKeyDown}
                                 placeholder={t('placeholder')}
-                                className={`w-full bg-transparent border-none focus:ring-0 resize-none max-h-32 min-h-[50px] py-3 px-2 text-slate-800 placeholder-slate-400 font-medium text-sm sm:text-base ${isRTL ? 'text-right' : 'text-left'}`}
+                                className={`w-full bg-transparent border-none focus:ring-0 resize-none max-h-32 min-h-[50px] py-3 px-2 text-slate-800 placeholder-slate-400 font-medium text-sm sm:text-base ${isRTL ? 'text-right' : 'text-left'} scrollbar-hide`}
                                 rows={1}
                                 style={{ height: 'auto', minHeight: '50px' }}
                             />
                             <button
                                 onClick={toggleRecording}
                                 className={`mb-1 p-3 rounded-lg transition-all shadow-md flex items-center justify-center border ${isRecording
-                                    ? 'bg-red-500 hover:bg-red-600 text-white animate-pulse border-red-400'
+                                    ? 'bg-red-500 hover:bg-red-600 text-white animate-pulse border-red-400 glow-red'
                                     : 'bg-white text-slate-500 hover:text-[#004D40] hover:bg-slate-100 border-slate-200'
                                     }`}
                                 title="Voice recording"
@@ -1476,9 +1530,9 @@ ${t('welcomeAsk')}`
                                 {isRecording ? <StopCircle className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
                             </button>
                             <button
-                                onClick={handleSend}
+                                onClick={() => handleSend()}
                                 disabled={!input.trim() || isLoading}
-                                className={`mb-1 p-3 ${COLORS.accent} ${COLORS.accentHover} text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-md`}
+                                className={`mb-1 p-3 ${COLORS.accent} ${COLORS.accentHover} text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 shadow-md transform hover:-translate-y-0.5`}
                             >
                                 <Send className={`w-5 h-5 ${isLoading ? 'opacity-0' : ''}`} />
                                 {isLoading && <div className="absolute inset-0 flex items-center justify-center">
