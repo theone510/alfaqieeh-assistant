@@ -224,7 +224,7 @@ const searchFatwas = async (query: string): Promise<string> => {
 };
 
 // --- Token Usage Tracking ---
-const MODEL_NAME = 'gemini-2.5-flash';
+const MODEL_NAME = 'gemini-3.0-flash';
 
 const logTokenUsage = (response: any, sessionId: string, type: string) => {
     try {
@@ -348,6 +348,9 @@ const translations: Record<Language, Record<string, string>> = {
         noAnswer: 'عذراً، لم أتمكن من استخراج إجابة.',
         language: 'لغة العرض',
         delete: 'حذف',
+        quickPrompt1: 'ما هي مبطلات الصلاة؟',
+        quickPrompt2: 'ما حكم بيع الذهب بالتقسيط؟',
+        quickPrompt3: 'ما هي شروط الخمس؟',
     },
     en: {
         appName: 'Faqih Assistant',
@@ -381,6 +384,9 @@ const translations: Record<Language, Record<string, string>> = {
         noAnswer: 'Sorry, I could not extract an answer.',
         language: 'Display Language',
         delete: 'Delete',
+        quickPrompt1: 'What invalidates prayer?',
+        quickPrompt2: 'What is the ruling on selling gold in installments?',
+        quickPrompt3: 'What are the conditions for Khums?',
     },
     fa: {
         appName: 'دستیار فقیه',
@@ -414,6 +420,9 @@ const translations: Record<Language, Record<string, string>> = {
         noAnswer: 'متأسفانه نتوانستم پاسخی استخراج کنم.',
         language: 'زبان نمایش',
         delete: 'حذف',
+        quickPrompt1: 'مبطلات نماز چیست؟',
+        quickPrompt2: 'حکم فروش طلا به صورت اقساطی چیست؟',
+        quickPrompt3: 'شرایط خمس چیست؟',
     },
     ur: {
         appName: 'فقیہ اسسٹنٹ',
@@ -446,6 +455,9 @@ const translations: Record<Language, Record<string, string>> = {
         noAnswer: 'معذرت، میں جواب نکالنے سے قاصر رہا۔',
         language: 'ڈسپلے زبان',
         delete: 'حذف کریں',
+        quickPrompt1: 'نماز کو کیا چیز باطل کرتی ہے؟',
+        quickPrompt2: 'قسطوں پر سونا بیچنے کا کیا حکم ہے؟',
+        quickPrompt3: 'خمس کی کیا شرائط ہیں؟',
     },
     tr: {
         appName: 'Fakih Asistanı',
@@ -479,6 +491,9 @@ const translations: Record<Language, Record<string, string>> = {
         noAnswer: 'Üzgünüz, bir cevap çıkaramadım.',
         language: 'Görüntüleme Dili',
         delete: 'Sil',
+        quickPrompt1: 'Namazı bozan şeyler nelerdir?',
+        quickPrompt2: 'Taksitle altın satmanın hükmü nedir?',
+        quickPrompt3: 'Humusun şartları nelerdir?',
     },
     fr: {
         appName: 'Assistant Faqih',
@@ -512,6 +527,9 @@ const translations: Record<Language, Record<string, string>> = {
         noAnswer: 'Désolé, je n\'ai pas pu extraire de réponse.',
         language: 'Langue d\'Affichage',
         delete: 'Supprimer',
+        quickPrompt1: 'Qu\'est-ce qui invalide la prière ?',
+        quickPrompt2: 'Quelle est la règle concernant la vente d\'or à tempérament ?',
+        quickPrompt3: 'Quelles sont les conditions du Khums ?',
     },
     hi: {
         appName: 'फ़क़ीह सहायक',
@@ -545,6 +563,9 @@ const translations: Record<Language, Record<string, string>> = {
         noAnswer: 'क्षमा करें, मैं उत्तर निकालने में असमर्थ रहा।',
         language: 'प्रदर्शन भाषा',
         delete: 'हटाएं',
+        quickPrompt1: 'प्रार्थना (नमाज़) को क्या अमान्य करता है?',
+        quickPrompt2: 'किश्तों पर सोना बेचने का क्या हुक्म है?',
+        quickPrompt3: 'खुम्स की शर्तें क्या हैं?',
     },
 };
 
@@ -898,7 +919,7 @@ ${t('welcomeAsk')}`
 
         try {
             const genAI = new GoogleGenerativeAI(apiKey);
-            const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash', systemInstruction: SYSTEM_INSTRUCTION });
+            const model = genAI.getGenerativeModel({ model: 'gemini-3.0-flash', systemInstruction: SYSTEM_INSTRUCTION });
 
             // Step 1: Detect if the language is Arabic using Regex OR if the UI language is already Arabic
             const isTextArabic = /[\u0600-\u06FF]/.test(userMessageText);
@@ -1096,18 +1117,19 @@ ${t('welcomeAsk')}`
                 <div className="absolute inset-0 pointer-events-none bg-pattern z-0 opacity-10" />
 
                 {/* Language Selector - Top Right */}
-                <div className="absolute top-4 right-4 z-20">
+                <div className="absolute top-4 right-4 z-20 flex items-center gap-2 bg-white/50 backdrop-blur-md p-1.5 rounded-xl border border-teal-100 shadow-sm">
+                    <span className="text-sm font-semibold text-teal-800 px-2 hidden md:block">{t('language')}:</span>
                     <div className="relative">
                         <select
                             value={language}
                             onChange={(e) => setLanguage(e.target.value as Language)}
-                            className={`appearance-none ${COLORS.primary} text-white px-4 py-2 pr-10 rounded-lg cursor-pointer text-sm font-medium shadow-lg border-2 border-[#C5A059] focus:outline-none focus:ring-2 focus:ring-[#C5A059]`}
+                            className={`appearance-none bg-white text-teal-800 px-4 py-2 pr-10 rounded-lg cursor-pointer text-sm font-medium shadow-sm border border-teal-200 focus:outline-none focus:ring-2 focus:ring-[#C5A059]`}
                         >
                             {(Object.keys(languageNames) as Language[]).map(lang => (
                                 <option key={lang} value={lang}>{languageNames[lang]}</option>
                             ))}
                         </select>
-                        <Globe className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#C5A059] pointer-events-none" />
+                        <Globe className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-teal-500 pointer-events-none" />
                     </div>
                 </div>
 
@@ -1180,19 +1202,15 @@ ${t('welcomeAsk')}`
                     {/* Quick Prompts Suggestions */}
                     <div className="max-w-3xl mx-auto mb-10 w-full animate-fade-in-up delay-100">
                         <div className="flex flex-wrap justify-center gap-2">
-                            {language === 'ar' && (
-                                <>
-                                    <button onClick={() => handleQuickPrompt("ما هي مبطلات الصلاة؟", 'MODE_UNDERSTANDING')} className="bg-white/80 backdrop-blur border border-teal-100/50 hover:border-[#C5A059] text-teal-800 px-4 py-2 rounded-full text-sm shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 whitespace-nowrap">
-                                        ما هي مبطلات الصلاة؟
-                                    </button>
-                                    <button onClick={() => handleQuickPrompt("ما حكم بيع الذهب بالتقسيط؟", 'MODE_LITERAL')} className="bg-white/80 backdrop-blur border border-teal-100/50 hover:border-[#C5A059] text-teal-800 px-4 py-2 rounded-full text-sm shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 whitespace-nowrap">
-                                        ما حكم بيع الذهب بالتقسيط؟
-                                    </button>
-                                    <button onClick={() => handleQuickPrompt("ما هي شروط الخمس؟", 'MODE_UNDERSTANDING')} className="bg-white/80 backdrop-blur border border-teal-100/50 hover:border-[#C5A059] text-teal-800 px-4 py-2 rounded-full text-sm shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 whitespace-nowrap">
-                                        ما هي شروط الخمس؟
-                                    </button>
-                                </>
-                            )}
+                            <button onClick={() => handleQuickPrompt(t('quickPrompt1'), 'MODE_UNDERSTANDING')} className="bg-white/80 backdrop-blur border border-teal-100/50 hover:border-[#C5A059] text-teal-800 px-4 py-2 rounded-full text-sm shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 whitespace-nowrap">
+                                {t('quickPrompt1')}
+                            </button>
+                            <button onClick={() => handleQuickPrompt(t('quickPrompt2'), 'MODE_LITERAL')} className="bg-white/80 backdrop-blur border border-teal-100/50 hover:border-[#C5A059] text-teal-800 px-4 py-2 rounded-full text-sm shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 whitespace-nowrap">
+                                {t('quickPrompt2')}
+                            </button>
+                            <button onClick={() => handleQuickPrompt(t('quickPrompt3'), 'MODE_UNDERSTANDING')} className="bg-white/80 backdrop-blur border border-teal-100/50 hover:border-[#C5A059] text-teal-800 px-4 py-2 rounded-full text-sm shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 whitespace-nowrap">
+                                {t('quickPrompt3')}
+                            </button>
                         </div>
                     </div>
 

@@ -270,6 +270,7 @@
         const { useState, useEffect, useMemo } = React;
 
         const MODEL_PRICING = {
+            'gemini-3.0-flash': { input: 0.50, output: 3.00, label: 'Gemini 3.0 Flash' },
             'gemini-2.5-flash': { input: 0.30, output: 2.50, label: 'Gemini 2.5 Flash' },
             'gemini-2.5-pro': { input: 1.25, output: 10.00, label: 'Gemini 2.5 Pro' },
             'gemini-2.0-flash': { input: 0.10, output: 0.40, label: 'Gemini 2.0 Flash' },
@@ -294,7 +295,7 @@
         const formatCost = (cost) => '$' + cost.toFixed(4);
         const formatDate = (ts) => new Date(ts).toLocaleDateString('ar-IQ', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
         const calcCost = (inputTokens, outputTokens, model) => {
-            const pricing = MODEL_PRICING[model] || MODEL_PRICING['gemini-2.5-flash'];
+            const pricing = MODEL_PRICING[model] || MODEL_PRICING['gemini-3.0-flash'];
             return (inputTokens / 1000000) * pricing.input + (outputTokens / 1000000) * pricing.output;
         };
 
@@ -370,7 +371,7 @@
                 var cacheLogs = logs.filter(function (l) { return l.type === 'cache_hit'; });
                 var inputSaved = cacheLogs.reduce(function (s, l) { return s + (l.inputTokensSaved || 0); }, 0);
                 var outputSaved = cacheLogs.reduce(function (s, l) { return s + (l.outputTokensSaved || 0); }, 0);
-                var costSaved = calcCost(inputSaved, outputSaved, 'gemini-2.5-flash');
+                var costSaved = calcCost(inputSaved, outputSaved, 'gemini-3.0-flash');
                 return { totalCached: totalCached, totalHits: totalHits, inputSaved: inputSaved, outputSaved: outputSaved, costSaved: costSaved };
             }, [cacheData, logs]);
 
@@ -499,7 +500,7 @@
                                 Object.entries(stats.byType).map(function (entry) {
                                     var type = entry[0], data = entry[1];
                                     var colors = TYPE_COLORS[type] || { bg: 'rgba(255,255,255,0.05)', text: '#fff', border: 'rgba(255,255,255,0.1)' };
-                                    var cost = calcCost(data.input, data.output, 'gemini-2.5-flash');
+                                    var cost = calcCost(data.input, data.output, 'gemini-3.0-flash');
                                     return h('div', { key: type, className: 'rounded-xl p-4', style: { background: colors.bg, border: '1px solid ' + colors.border } },
                                         h('div', { className: 'flex items-center justify-between mb-3' },
                                             h('span', { className: 'text-sm font-bold', style: { color: colors.text } }, TYPE_LABELS[type] || type),
@@ -683,7 +684,7 @@
                         h('div', { className: 'grid grid-cols-1 md:grid-cols-2 gap-4' },
                             Object.entries(MODEL_PRICING).map(function (pair) {
                                 var key = pair[0], model = pair[1];
-                                var isActive = key === 'gemini-2.5-flash';
+                                var isActive = key === 'gemini-3.0-flash';
                                 return h('div', { key: key, className: 'rounded-xl p-5 transition-all ' + (isActive ? 'cost-highlight' : 'stat-card') },
                                     h('div', { className: 'flex items-center justify-between mb-4' },
                                         h('h4', { className: 'text-base font-bold ' + (isActive ? 'text-[#C5A059]' : 'text-white/80') }, model.label),
