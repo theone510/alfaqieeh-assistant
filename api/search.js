@@ -30,8 +30,8 @@ export default async function handler(req, res) {
         // 2. Search Supabase using RPC function
         const { data, error } = await supabase.rpc('match_fatwas', {
             query_embedding: embedding,
-            match_threshold: 0.7, // Adjust threshold as needed
-            match_count: 5
+            match_threshold: 0.5, // Lowered threshold for better recall
+            match_count: 8 // Increased count for more context
         });
 
         if (error) {
