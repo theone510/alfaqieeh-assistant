@@ -1092,7 +1092,8 @@ ${t('welcomeAsk')}`
                 });
 
                 text = response.response.text() || "عذراً، لم أتمكن من استخراج إجابة.";
-                logTokenUsage(response, sessionId!, 'fiqh_answer', activeModelName);
+                const logType = activeMode === 'MODE_LITERAL' ? 'fiqh_literal' : 'fiqh_understanding';
+                logTokenUsage(response, sessionId!, logType, activeModelName);
 
                 // Save to cache for future use
                 const usage = response?.response?.usageMetadata;
