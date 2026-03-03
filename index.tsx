@@ -223,10 +223,7 @@ const searchFatwas = async (query: string): Promise<string> => {
     }
 };
 
-// --- Token Usage Tracking ---
-const MODEL_NAME = 'gemini-3.0-flash';
-
-const logTokenUsage = (response: any, sessionId: string, type: string) => {
+const logTokenUsage = (response: any, sessionId: string, type: string, modelName: string) => {
     try {
         const usage = response?.response?.usageMetadata;
         if (!usage) return;
@@ -234,7 +231,7 @@ const logTokenUsage = (response: any, sessionId: string, type: string) => {
         const entry = {
             id: crypto.randomUUID(),
             sessionId,
-            model: MODEL_NAME,
+            model: modelName,
             inputTokens: usage.promptTokenCount || 0,
             outputTokens: usage.candidatesTokenCount || 0,
             totalTokens: usage.totalTokenCount || 0,
@@ -295,12 +292,12 @@ const saveToCacheAsync = async (question: string, mode: string, answer: string, 
     }
 };
 
-const logCacheHit = (sessionId: string, inputTokensSaved: number, outputTokensSaved: number) => {
+const logCacheHit = (sessionId: string, inputTokensSaved: number, outputTokensSaved: number, modelName: string) => {
     try {
         addTokenLog({
             id: crypto.randomUUID(),
             sessionId,
-            model: MODEL_NAME,
+            model: modelName,
             inputTokens: 0,
             outputTokens: 0,
             totalTokens: 0,
@@ -987,16 +984,18 @@ ${t('welcomeAsk')}`
         }
         setSessions(newSessionsList);
 
-        try {
-            const genAI = new GoogleGenerativeAI(apiKey);
-            const model = genAI.getGenerativeModel({ model: 'gemini-3.0-flash', systemInstruction: SYSTEM_INSTRUCTION });
+        const activeModelName = activeMode === 'MODE_LITERAL' ? 'gemini-2.0-flash' : 'gemini-2.5-flash';
 
+        try {
             // Step 1: Detect if the language is Arabic using Regex OR if the UI language is already Arabic
             const isTextArabic = /[\u0600-\u06FF]/.test(userMessageText);
             const isUiArabic = language === 'ar';
             // We consider the input "Arabic" if either the text is Arabic or the user chose Arabic UI
             const isArabic = isTextArabic || isUiArabic;
             const detectedLang = isArabic ? 'ar' : language; // Default to UI language if not Arabic
+
+            const genAI = new GoogleGenerativeAI(apiKey);
+            const model = genAI.getGenerativeModel({ model: activeModelName, systemInstruction: SYSTEM_INSTRUCTION });
 
             let questionInArabic = userMessageText;
 
@@ -1009,7 +1008,7 @@ ${t('welcomeAsk')}`
                     }]
                 });
                 questionInArabic = translateToArabicResponse.response.text() || userMessageText;
-                logTokenUsage(translateToArabicResponse, sessionId!, 'translation_to_ar');
+                logTokenUsage(translateToArabicResponse, sessionId!, 'translation_to_ar', activeModelName);
             }
 
 
@@ -1027,7 +1026,7 @@ ${t('welcomeAsk')}`
                 const cKey = getCacheKey(questionInArabic, activeMode);
                 const newHitCount = (cachedAnswer.hitCount || 0) + 1;
                 updateCacheHitCount(cKey, newHitCount);
-                logCacheHit(sessionId!, cachedAnswer.inputTokens || 0, cachedAnswer.outputTokens || 0);
+                logCacheHit(sessionId!, cachedAnswer.inputTokens || 0, cachedAnswer.outputTokens || 0, activeModelName);
             } else {
                 // Cache MISS — proceed with normal flow
                 console.log('❌ Cache MISS for:', questionInArabic.substring(0, 50));
@@ -1093,7 +1092,7 @@ ${t('welcomeAsk')}`
                 });
 
                 text = response.response.text() || "عذراً، لم أتمكن من استخراج إجابة.";
-                logTokenUsage(response, sessionId!, 'fiqh_answer');
+                logTokenUsage(response, sessionId!, 'fiqh_answer', activeModelName);
 
                 // Save to cache for future use
                 const usage = response?.response?.usageMetadata;
@@ -1118,7 +1117,7 @@ ${t('welcomeAsk')}`
                     generationConfig: { temperature: 0.2 }
                 });
                 text = translateBackResponse.response.text() || text;
-                logTokenUsage(translateBackResponse, sessionId!, 'translation_back');
+                logTokenUsage(translateBackResponse, sessionId!, 'translation_back', activeModelName);
             }
 
             const modelMessage: Message = { role: 'model', text };
