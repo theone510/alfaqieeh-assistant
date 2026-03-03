@@ -373,7 +373,7 @@
                 var cacheLogs = logs.filter(function (l) { return l.type === 'cache_hit'; });
                 var inputSaved = cacheLogs.reduce(function (s, l) { return s + (l.inputTokensSaved || 0); }, 0);
                 var outputSaved = cacheLogs.reduce(function (s, l) { return s + (l.outputTokensSaved || 0); }, 0);
-                var costSaved = calcCost(inputSaved, outputSaved, 'gemini-2.0-flash-001');
+                var costSaved = calcCost(inputSaved, outputSaved, 'gemini-2.0-flash');
                 return { totalCached: totalCached, totalHits: totalHits, inputSaved: inputSaved, outputSaved: outputSaved, costSaved: costSaved };
             }, [cacheData, logs]);
 
@@ -504,9 +504,9 @@
                                     var colors = TYPE_COLORS[type] || { bg: 'rgba(255,255,255,0.05)', text: '#fff', border: 'rgba(255,255,255,0.1)' };
 
                                     // Calculate cost using the correct model for the type if possible
-                                    var modelForType = type === 'fiqh_literal' ? 'gemini-2.0-flash-001' :
-                                        type === 'fiqh_understanding' ? 'gemini-1.5-flash' :
-                                            'gemini-2.0-flash-001';
+                                    var modelForType = type === 'fiqh_literal' ? 'gemini-2.0-flash' :
+                                        type === 'fiqh_understanding' ? 'gemini-2.5-flash' :
+                                            'gemini-2.0-flash';
 
                                     var cost = calcCost(data.input, data.output, modelForType);
                                     return h('div', { key: type, className: 'rounded-xl p-4', style: { background: colors.bg, border: '1px solid ' + colors.border } },
