@@ -60,7 +60,7 @@ const SYSTEM_INSTRUCTION = `
     4. **الإجابة على أي سؤال اقتصادي بحت** (مثل: أسعار العملات، البورصة، الاستثمار، التضخم) ما لم يكن السؤال فقهياً مباشراً عن حكم شرعي محدد (مثل: هل يجوز التعامل بالربا؟).
     5. الإجابة على الأسئلة الترفيهية، التقنية، العلمية، الطبية البحتة، أو أي موضوع لا علاقة مباشرة له بالفقه.
     6. تقديم نصيحة شخصية أو "وعظ" خارج إطار الحكم الشرعي.
-    7. **التسرع في قول "لا يوجد مورد"** في وضع الفهم — يجب استنفاد كل محاولات الربط بالمواضيع ذات الصلة الفقهية أولاً.
+    7. **التسرع في قول "لا يوجد مورد"** في وضع الفهم — يجب استنفاد كل محاولات الربط بالمواضيع ذات الصلة الفقهية أولاً. إذا تضمن السؤال عدة مفاصل فقهية (مثل: وضوء، غسل، وقت)، اربط بين أحكامها المستقلة للخروج بحكم شامل للسؤال، ولا تعتذر لمجرد عدم وجود فتوى تجمعها كلها في نص واحد.
     8. **الإجابة على أسئلة غير فقهية مباشرة** بمحاولة إيجاد ربط فقهي غير موجود — يجب أن يكون السؤال فقهياً بطبيعته.
 
 ---
@@ -1035,609 +1035,610 @@ ${t('welcomeAsk')}`
                 console.log('❌ Cache MISS for:', questionInArabic.substring(0, 50));
 
                 // Step 3: Normalize the question to formal fiqh terminology for better RAG search
-                // This step converts colloquial/dialect Arabic to formal fiqh terms
+                // This step converts colloquial/dialect Arabic to formal fiqh terms and extracts MULTIPLE concepts if present.
                 let searchQuery = questionInArabic;
                 try {
                     const normalizeResponse = await model.generateContent({
                         contents: [{
                             role: 'user',
                             parts: [{
-                                text: `أنت مساعد متخصص في تحويل الأسئلة العامية أو غير الرسمية إلى مصطلحات فقهية رسمية للبحث في قاعدة بيانات فتاوى السيد السيستاني.
-
-حوّل السؤال التالي إلى عبارة بحث فقهية رسمية بالعربية الفصحى. استخرج الموضوع الفقهي الأساسي وأضف المصطلحات الفقهية ذات الصلة.
-
-أمثلة:
-- "شيصير لو تنايجت وية صديقتي" → "حكم الزنا والعلاقة الجنسية المحرمة بين غير المتزوجين"
-- "هل اكدر اكل لحم خنزير" → "حكم أكل لحم الخنزير في الإسلام"  
-- "لو ما صليت شيصير" → "حكم ترك الصلاة وعقوبة تارك الصلاة"
-- "هل اكدر اشرب بيرة" → "حكم شرب الخمر والمسكرات"
+                                text: `أنت مساعد فقهي متخصص. استخرج كل الكلمات المفتاحية الفقهية من السؤال التالي لغرض البحث في فتاوى السيد السيستاني.
 
 السؤال: "${questionInArabic}"
 
-أعطني فقط عبارة البحث الفقهية بدون أي شرح إضافي.` }]
-                        }],
-                        generationConfig: { temperature: 0.1, maxOutputTokens: 100 }
+أعد النتيجة بصيغة JSON فقط، تحتوي على مفتاح "keywords" وبداخله سلسلة نصية للكلمات المفتاحية مفصولة بمسافة.
+مثال: {"keywords": "حكم غسل الجمعة قبل الفجر إجزاء الغسل عن الوضوء حدث أصغر"}
+لا تضف أي نص آخر غير كائن الـ JSON.` }]
+                        }]
+                    }],
+                        generationConfig: { temperature: 0.1, responseMimeType: "application/json" }
                     });
-                    const normalizedQuery = normalizeResponse.response.text()?.trim();
+
+                try {
+                    const jsonResponse = JSON.parse(normalizeResponse.response.text());
+                    const normalizedQuery = jsonResponse.keywords?.trim();
                     if (normalizedQuery && normalizedQuery.length > 5) {
                         searchQuery = normalizedQuery;
                         console.log('🔍 Normalized search query:', searchQuery);
                     }
-                } catch (e) {
-                    console.warn('⚠️ Fiqh normalization failed, using original question:', e);
+                } catch (parseErr) {
+                    console.warn('⚠️ JSON Parse failed for normalization:', normalizeResponse.response.text());
                 }
-
-                // Step 4: Search local fatwas data (RAG)
-                const ragContext = await searchFatwas(searchQuery);
-
-                // Step 5: Get the fiqh answer in Arabic with RAG context
-                let promptWithContext = '';
-                if (activeMode === 'MODE_LITERAL') {
-                    promptWithContext = `[هام جداً: أنت في "الوضع الحرفي". يُمنع التلخيص أو الاستنتاج الذاتي. اعتمد حصراً على النص أدناه. انسخ النص حرفياً وانسخ التوثيق الكامل للمصدر المرفق في السياق بدقة متناهية دون اختلاق أرقام مسألة أو دمج مصادر].\n\nالسؤال: ${questionInArabic}\n\nالسياق:\n${ragContext}`;
-                } else {
-                    promptWithContext = `[هام: أنت في "وضع الفهم". قدم حكماً مختصراً ثم شرحاً مستنداً للنصوص المرفقة أدناه، واقتبس التوثيق الكامل للمصدر المرفق في السياق دون اختلاق أرقام أو التفاف].\n\nالسؤال: ${questionInArabic}\n\nالسياق:\n${ragContext}`;
-                }
-
-                const response = await model.generateContent({
-                    contents: [
-                        ...messages.filter(m => m.role === 'model' || isArabic).map(m => ({
-                            role: m.role,
-                            parts: [{ text: m.text }]
-                        })),
-                        {
-                            role: 'user',
-                            parts: [{ text: promptWithContext }]
-                        }
-                    ],
-                    generationConfig: {
-                        temperature: 0.3,
-                    }
-                });
-
-                text = response.response.text() || "عذراً، لم أتمكن من استخراج إجابة.";
-                logTokenUsage(response, sessionId!, 'fiqh_search', activeModelName);
-
-                // Save to cache for future use
-                const usage = response?.response?.usageMetadata;
-                saveToCacheAsync(questionInArabic, activeMode, text, usage?.promptTokenCount || 0, usage?.candidatesTokenCount || 0);
+            } catch (e) {
+                console.warn('⚠️ Fiqh normalization failed, using original question:', e);
             }
+
+            // Step 4: Search local fatwas data (RAG)
+            const ragContext = await searchFatwas(searchQuery);
+
+            // Step 5: Get the fiqh answer in Arabic with RAG context
+            let promptWithContext = '';
+            if (activeMode === 'MODE_LITERAL') {
+                promptWithContext = `[هام جداً: أنت في "الوضع الحرفي". يُمنع التلخيص أو الاستنتاج الذاتي. اعتمد حصراً على النص أدناه. انسخ النص حرفياً وانسخ التوثيق الكامل للمصدر المرفق في السياق بدقة متناهية دون اختلاق أرقام مسألة أو دمج مصادر].\n\nالسؤال: ${questionInArabic}\n\nالسياق:\n${ragContext}`;
+            } else {
+                promptWithContext = `[هام: أنت في "وضع الفهم". قدم حكماً مختصراً ثم شرحاً مستنداً للنصوص المرفقة أدناه، واقتبس التوثيق الكامل للمصدر المرفق في السياق دون اختلاق أرقام أو التفاف].\n\nالسؤال: ${questionInArabic}\n\nالسياق:\n${ragContext}`;
+            }
+
+            const response = await model.generateContent({
+                contents: [
+                    ...messages.filter(m => m.role === 'model' || isArabic).map(m => ({
+                        role: m.role,
+                        parts: [{ text: m.text }]
+                    })),
+                    {
+                        role: 'user',
+                        parts: [{ text: promptWithContext }]
+                    }
+                ],
+                generationConfig: {
+                    temperature: 0.3,
+                }
+            });
+
+            text = response.response.text() || "عذراً، لم أتمكن من استخراج إجابة.";
+            logTokenUsage(response, sessionId!, 'fiqh_search', activeModelName);
+
+            // Save to cache for future use
+            const usage = response?.response?.usageMetadata;
+            saveToCacheAsync(questionInArabic, activeMode, text, usage?.promptTokenCount || 0, usage?.candidatesTokenCount || 0);
+        }
 
             // Step 5: If the original question was not in Arabic, translate the answer back to the user's language
             if (!isArabic && !wasFromCache) {
-                const langNames: { [key: string]: string } = {
-                    'en': 'English', 'fa': 'Persian/Farsi', 'ur': 'Urdu', 'fr': 'French',
-                    'es': 'Spanish', 'de': 'German', 'tr': 'Turkish', 'id': 'Indonesian',
-                    'ms': 'Malay', 'bn': 'Bengali', 'hi': 'Hindi', 'ru': 'Russian',
-                    'zh': 'Chinese', 'ja': 'Japanese', 'ko': 'Korean', 'pt': 'Portuguese',
-                    'it': 'Italian', 'nl': 'Dutch', 'pl': 'Polish', 'sv': 'Swedish'
-                };
-                const targetLangName = langNames[detectedLang] || detectedLang;
-                const translateBackResponse = await model.generateContent({
-                    contents: [{
-                        role: 'user',
-                        parts: [{ text: `Translate the following Islamic jurisprudence (fiqh) answer from Arabic to ${targetLangName}. Maintain the formal scholarly tone and preserve any Arabic religious terms with their transliteration where appropriate. Provide ONLY the translation:\n\n${text}` }]
-                    }],
-                    generationConfig: { temperature: 0.2 }
-                });
-                text = translateBackResponse.response.text() || text;
-                logTokenUsage(translateBackResponse, sessionId!, 'translation_back', activeModelName);
-            }
-
-            const modelMessage: Message = { role: 'model', text };
-
-            // Update messages with AI response
-            const finalMessages = [...updatedMessages, modelMessage];
-            setMessages(finalMessages);
-
-            // Update session in state and Firebase
-            setSessions(prev => {
-                const updated = prev.map(s =>
-                    s.id === sessionId
-                        ? { ...s, messages: finalMessages }
-                        : s
-                );
-                const updatedSession = updated.find(s => s.id === sessionId);
-                if (updatedSession) saveSessionToDb(updatedSession);
-                return updated;
-            });
-
-        } catch (error) {
-            console.error(error);
-            const errorMessage: Message = {
-                role: 'model',
-                text: `**${t('errorMessage')}**`
+            const langNames: { [key: string]: string } = {
+                'en': 'English', 'fa': 'Persian/Farsi', 'ur': 'Urdu', 'fr': 'French',
+                'es': 'Spanish', 'de': 'German', 'tr': 'Turkish', 'id': 'Indonesian',
+                'ms': 'Malay', 'bn': 'Bengali', 'hi': 'Hindi', 'ru': 'Russian',
+                'zh': 'Chinese', 'ja': 'Japanese', 'ko': 'Korean', 'pt': 'Portuguese',
+                'it': 'Italian', 'nl': 'Dutch', 'pl': 'Polish', 'sv': 'Swedish'
             };
-            setMessages(prev => [...prev, errorMessage]);
-        } finally {
-            clearInterval(loadingInterval);
-            setIsLoading(false);
-            setLoadingStep(0);
+            const targetLangName = langNames[detectedLang] || detectedLang;
+            const translateBackResponse = await model.generateContent({
+                contents: [{
+                    role: 'user',
+                    parts: [{ text: `Translate the following Islamic jurisprudence (fiqh) answer from Arabic to ${targetLangName}. Maintain the formal scholarly tone and preserve any Arabic religious terms with their transliteration where appropriate. Provide ONLY the translation:\n\n${text}` }]
+                }],
+                generationConfig: { temperature: 0.2 }
+            });
+            text = translateBackResponse.response.text() || text;
+            logTokenUsage(translateBackResponse, sessionId!, 'translation_back', activeModelName);
         }
-    };
 
-    const handleKeyDown = (e: React.KeyboardEvent) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
+        const modelMessage: Message = { role: 'model', text };
+
+        // Update messages with AI response
+        const finalMessages = [...updatedMessages, modelMessage];
+        setMessages(finalMessages);
+
+        // Update session in state and Firebase
+        setSessions(prev => {
+            const updated = prev.map(s =>
+                s.id === sessionId
+                    ? { ...s, messages: finalMessages }
+                    : s
+            );
+            const updatedSession = updated.find(s => s.id === sessionId);
+            if (updatedSession) saveSessionToDb(updatedSession);
+            return updated;
+        });
+
+    } catch (error) {
+        console.error(error);
+        const errorMessage: Message = {
+            role: 'model',
+            text: `**${t('errorMessage')}**`
+        };
+        setMessages(prev => [...prev, errorMessage]);
+    } finally {
+        clearInterval(loadingInterval);
+        setIsLoading(false);
+        setLoadingStep(0);
+    }
+};
+
+const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        handleSend();
+    }
+};
+
+const goToHome = () => {
+    setHasStarted(false);
+    setMessages([]);
+    setCurrentSessionId(null);
+    setIsSidebarOpen(false); // Close sidebar on mobile
+};
+
+// Auto Send Effect
+useEffect(() => {
+    if (!isRecording && shouldAutoSendRef.current) {
+        if (input.trim()) {
             handleSend();
         }
-    };
-
-    const goToHome = () => {
-        setHasStarted(false);
-        setMessages([]);
-        setCurrentSessionId(null);
-        setIsSidebarOpen(false); // Close sidebar on mobile
-    };
-
-    // Auto Send Effect
-    useEffect(() => {
-        if (!isRecording && shouldAutoSendRef.current) {
-            if (input.trim()) {
-                handleSend();
-            }
-            shouldAutoSendRef.current = false;
-        }
-    }, [isRecording]);
+        shouldAutoSendRef.current = false;
+    }
+}, [isRecording]);
 
 
 
-    // --- Intro Screen Component ---
-    if (!hasStarted) {
-        return (
-            <div dir={isRTL ? 'rtl' : 'ltr'} className={`flex min-h-screen ${COLORS.bgLight} font-sans relative overflow-hidden flex-col items-center justify-center p-4 ${language === 'ur' ? 'urdu-text' : ''} ${language === 'fa' ? 'persian-text' : ''}`}>
-                {/* Background Pattern */}
-                <div className="absolute inset-0 pointer-events-none bg-pattern z-0 opacity-10" />
+// --- Intro Screen Component ---
+if (!hasStarted) {
+    return (
+        <div dir={isRTL ? 'rtl' : 'ltr'} className={`flex min-h-screen ${COLORS.bgLight} font-sans relative overflow-hidden flex-col items-center justify-center p-4 ${language === 'ur' ? 'urdu-text' : ''} ${language === 'fa' ? 'persian-text' : ''}`}>
+            {/* Background Pattern */}
+            <div className="absolute inset-0 pointer-events-none bg-pattern z-0 opacity-10" />
 
-                {/* Language Selector - Top Right */}
-                <div className="absolute top-4 right-4 z-20 flex items-center gap-2 bg-white/50 backdrop-blur-md p-1.5 rounded-xl border border-teal-100 shadow-sm">
-                    <span className="text-sm font-semibold text-teal-800 px-2 hidden md:block">{t('language')}:</span>
-                    <div className="relative">
-                        <select
-                            value={language}
-                            onChange={(e) => setLanguage(e.target.value as Language)}
-                            className={`appearance-none bg-white text-teal-800 px-4 py-2 pr-10 rounded-lg cursor-pointer text-sm font-medium shadow-sm border border-teal-200 focus:outline-none focus:ring-2 focus:ring-[#C5A059]`}
-                        >
-                            {(Object.keys(languageNames) as Language[]).map(lang => (
-                                <option key={lang} value={lang}>{languageNames[lang]}</option>
-                            ))}
-                        </select>
-                        <Globe className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-teal-500 pointer-events-none" />
+            {/* Language Selector - Top Right */}
+            <div className="absolute top-4 right-4 z-20 flex items-center gap-2 bg-white/50 backdrop-blur-md p-1.5 rounded-xl border border-teal-100 shadow-sm">
+                <span className="text-sm font-semibold text-teal-800 px-2 hidden md:block">{t('language')}:</span>
+                <div className="relative">
+                    <select
+                        value={language}
+                        onChange={(e) => setLanguage(e.target.value as Language)}
+                        className={`appearance-none bg-white text-teal-800 px-4 py-2 pr-10 rounded-lg cursor-pointer text-sm font-medium shadow-sm border border-teal-200 focus:outline-none focus:ring-2 focus:ring-[#C5A059]`}
+                    >
+                        {(Object.keys(languageNames) as Language[]).map(lang => (
+                            <option key={lang} value={lang}>{languageNames[lang]}</option>
+                        ))}
+                    </select>
+                    <Globe className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-teal-500 pointer-events-none" />
+                </div>
+            </div>
+
+            <div className="relative z-10 w-full max-w-4xl animate-fade-in-up">
+                {/* Header */}
+                <div className="text-center mb-12">
+                    <div className={`inline-flex items-center justify-center w-20 h-20 rounded-full ${COLORS.primary} shadow-xl mb-6 border-4 border-[#C5A059]`}>
+                        <Scroll className="w-10 h-10 text-white" />
+                    </div>
+                    <h1 className={`text-4xl md:text-5xl font-bold ${COLORS.textDark} mb-4 font-serif`}>
+                        {t('appName')}
+                    </h1>
+                    <p className="text-slate-500 mt-4 max-w-lg mx-auto leading-relaxed text-center">
+                        {t('appDescription')}
+                        <br />
+                        <span className="text-sm font-bold mt-2 block text-center">{t('selectMode')}</span>
+                    </p>
+                </div>
+
+                {/* Mode Selection Cards */}
+                <div className="grid md:grid-cols-2 gap-6 max-w-3xl mx-auto mb-12">
+
+                    {/* Literal Mode Card */}
+                    <button
+                        onClick={() => handleStart('MODE_LITERAL')}
+                        className={`group relative bg-white border-2 border-slate-200 hover:border-[#C5A059] rounded-2xl p-8 ${isRTL ? 'text-right' : 'text-left'} shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col items-start gap-4`}
+                    >
+                        <div className={`p-3 rounded-xl ${COLORS.primaryLight} group-hover:bg-[#004D40] transition-colors`}>
+                            <FileText className={`w-8 h-8 text-[#004D40] group-hover:text-white transition-colors`} />
+                        </div>
+                        <div>
+                            <h3 className={`text-xl font-bold ${COLORS.textDark} mb-2 group-hover:text-[#C5A059] transition-colors`}>
+                                {t('literalMode')}
+                                <span className={`text-xs font-normal text-slate-400 ${isRTL ? 'mr-2' : 'ml-2'} bg-slate-100 px-2 py-0.5 rounded-full`}>{t('literalModeTag')}</span>
+                            </h3>
+                            <p className={`text-slate-600 text-sm leading-relaxed ${isRTL ? 'text-justify' : 'text-left'}`}>
+                                {t('literalModeDesc')}
+                            </p>
+                        </div>
+                        <div className="mt-auto w-full pt-4 border-t border-slate-100 flex justify-between items-center text-[#C5A059] font-bold text-sm opacity-0 group-hover:opacity-100 transition-opacity">
+                            <span>{t('startNow')}</span>
+                            <ArrowRight className={`w-4 h-4 ${isRTL ? 'mr-1 rotate-180' : 'ml-1'}`} />
+                        </div>
+                    </button>
+
+                    {/* Understanding Mode Card */}
+                    <button
+                        onClick={() => handleStart('MODE_UNDERSTANDING')}
+                        className={`group relative bg-white border-2 border-slate-200 hover:border-[#C5A059] rounded-2xl p-8 ${isRTL ? 'text-right' : 'text-left'} shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col items-start gap-4`}
+                    >
+                        <div className={`p-3 rounded-xl ${COLORS.primaryLight} group-hover:bg-[#004D40] transition-colors`}>
+                            <BookOpen className={`w-8 h-8 text-[#004D40] group-hover:text-white transition-colors`} />
+                        </div>
+                        <div>
+                            <h3 className={`text-xl font-bold ${COLORS.textDark} mb-2 group-hover:text-[#C5A059] transition-colors`}>
+                                {t('understandingMode')}
+                                <span className={`text-xs font-normal text-slate-400 ${isRTL ? 'mr-2' : 'ml-2'} bg-slate-100 px-2 py-0.5 rounded-full`}>{t('understandingModeTag')}</span>
+                            </h3>
+                            <p className={`text-slate-600 text-sm leading-relaxed ${isRTL ? 'text-justify' : 'text-left'}`}>
+                                {t('understandingModeDesc')}
+                            </p>
+                        </div>
+                        <div className="mt-auto w-full pt-4 border-t border-slate-100 flex justify-between items-center text-[#C5A059] font-bold text-sm opacity-0 group-hover:opacity-100 transition-opacity">
+                            <span>{t('startNow')}</span>
+                            <ArrowRight className={`w-4 h-4 ${isRTL ? 'mr-1 rotate-180' : 'ml-1'}`} />
+                        </div>
+                    </button>
+                </div>
+
+                {/* Quick Prompts Suggestions */}
+                <div className="max-w-3xl mx-auto mb-10 w-full animate-fade-in-up delay-100">
+                    <div className="flex flex-wrap justify-center gap-2">
+                        <button onClick={() => handleQuickPrompt(t('quickPrompt1'), 'MODE_UNDERSTANDING')} className="bg-white/80 backdrop-blur border border-teal-100/50 hover:border-[#C5A059] text-teal-800 px-4 py-2 rounded-full text-sm shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 whitespace-nowrap">
+                            {t('quickPrompt1')}
+                        </button>
+                        <button onClick={() => handleQuickPrompt(t('quickPrompt2'), 'MODE_LITERAL')} className="bg-white/80 backdrop-blur border border-teal-100/50 hover:border-[#C5A059] text-teal-800 px-4 py-2 rounded-full text-sm shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 whitespace-nowrap">
+                            {t('quickPrompt2')}
+                        </button>
+                        <button onClick={() => handleQuickPrompt(t('quickPrompt3'), 'MODE_UNDERSTANDING')} className="bg-white/80 backdrop-blur border border-teal-100/50 hover:border-[#C5A059] text-teal-800 px-4 py-2 rounded-full text-sm shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 whitespace-nowrap">
+                            {t('quickPrompt3')}
+                        </button>
                     </div>
                 </div>
 
-                <div className="relative z-10 w-full max-w-4xl animate-fade-in-up">
-                    {/* Header */}
-                    <div className="text-center mb-12">
-                        <div className={`inline-flex items-center justify-center w-20 h-20 rounded-full ${COLORS.primary} shadow-xl mb-6 border-4 border-[#C5A059]`}>
-                            <Scroll className="w-10 h-10 text-white" />
-                        </div>
-                        <h1 className={`text-4xl md:text-5xl font-bold ${COLORS.textDark} mb-4 font-serif`}>
-                            {t('appName')}
-                        </h1>
-                        <p className="text-slate-500 mt-4 max-w-lg mx-auto leading-relaxed text-center">
-                            {t('appDescription')}
-                            <br />
-                            <span className="text-sm font-bold mt-2 block text-center">{t('selectMode')}</span>
-                        </p>
-                    </div>
-
-                    {/* Mode Selection Cards */}
-                    <div className="grid md:grid-cols-2 gap-6 max-w-3xl mx-auto mb-12">
-
-                        {/* Literal Mode Card */}
-                        <button
-                            onClick={() => handleStart('MODE_LITERAL')}
-                            className={`group relative bg-white border-2 border-slate-200 hover:border-[#C5A059] rounded-2xl p-8 ${isRTL ? 'text-right' : 'text-left'} shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col items-start gap-4`}
-                        >
-                            <div className={`p-3 rounded-xl ${COLORS.primaryLight} group-hover:bg-[#004D40] transition-colors`}>
-                                <FileText className={`w-8 h-8 text-[#004D40] group-hover:text-white transition-colors`} />
-                            </div>
-                            <div>
-                                <h3 className={`text-xl font-bold ${COLORS.textDark} mb-2 group-hover:text-[#C5A059] transition-colors`}>
-                                    {t('literalMode')}
-                                    <span className={`text-xs font-normal text-slate-400 ${isRTL ? 'mr-2' : 'ml-2'} bg-slate-100 px-2 py-0.5 rounded-full`}>{t('literalModeTag')}</span>
-                                </h3>
-                                <p className={`text-slate-600 text-sm leading-relaxed ${isRTL ? 'text-justify' : 'text-left'}`}>
-                                    {t('literalModeDesc')}
-                                </p>
-                            </div>
-                            <div className="mt-auto w-full pt-4 border-t border-slate-100 flex justify-between items-center text-[#C5A059] font-bold text-sm opacity-0 group-hover:opacity-100 transition-opacity">
-                                <span>{t('startNow')}</span>
-                                <ArrowRight className={`w-4 h-4 ${isRTL ? 'mr-1 rotate-180' : 'ml-1'}`} />
-                            </div>
-                        </button>
-
-                        {/* Understanding Mode Card */}
-                        <button
-                            onClick={() => handleStart('MODE_UNDERSTANDING')}
-                            className={`group relative bg-white border-2 border-slate-200 hover:border-[#C5A059] rounded-2xl p-8 ${isRTL ? 'text-right' : 'text-left'} shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col items-start gap-4`}
-                        >
-                            <div className={`p-3 rounded-xl ${COLORS.primaryLight} group-hover:bg-[#004D40] transition-colors`}>
-                                <BookOpen className={`w-8 h-8 text-[#004D40] group-hover:text-white transition-colors`} />
-                            </div>
-                            <div>
-                                <h3 className={`text-xl font-bold ${COLORS.textDark} mb-2 group-hover:text-[#C5A059] transition-colors`}>
-                                    {t('understandingMode')}
-                                    <span className={`text-xs font-normal text-slate-400 ${isRTL ? 'mr-2' : 'ml-2'} bg-slate-100 px-2 py-0.5 rounded-full`}>{t('understandingModeTag')}</span>
-                                </h3>
-                                <p className={`text-slate-600 text-sm leading-relaxed ${isRTL ? 'text-justify' : 'text-left'}`}>
-                                    {t('understandingModeDesc')}
-                                </p>
-                            </div>
-                            <div className="mt-auto w-full pt-4 border-t border-slate-100 flex justify-between items-center text-[#C5A059] font-bold text-sm opacity-0 group-hover:opacity-100 transition-opacity">
-                                <span>{t('startNow')}</span>
-                                <ArrowRight className={`w-4 h-4 ${isRTL ? 'mr-1 rotate-180' : 'ml-1'}`} />
-                            </div>
-                        </button>
-                    </div>
-
-                    {/* Quick Prompts Suggestions */}
-                    <div className="max-w-3xl mx-auto mb-10 w-full animate-fade-in-up delay-100">
-                        <div className="flex flex-wrap justify-center gap-2">
-                            <button onClick={() => handleQuickPrompt(t('quickPrompt1'), 'MODE_UNDERSTANDING')} className="bg-white/80 backdrop-blur border border-teal-100/50 hover:border-[#C5A059] text-teal-800 px-4 py-2 rounded-full text-sm shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 whitespace-nowrap">
-                                {t('quickPrompt1')}
-                            </button>
-                            <button onClick={() => handleQuickPrompt(t('quickPrompt2'), 'MODE_LITERAL')} className="bg-white/80 backdrop-blur border border-teal-100/50 hover:border-[#C5A059] text-teal-800 px-4 py-2 rounded-full text-sm shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 whitespace-nowrap">
-                                {t('quickPrompt2')}
-                            </button>
-                            <button onClick={() => handleQuickPrompt(t('quickPrompt3'), 'MODE_UNDERSTANDING')} className="bg-white/80 backdrop-blur border border-teal-100/50 hover:border-[#C5A059] text-teal-800 px-4 py-2 rounded-full text-sm shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 whitespace-nowrap">
-                                {t('quickPrompt3')}
-                            </button>
+                {/* Previous Sessions in Intro */}
+                {sessions.length > 0 && (
+                    <div className="max-w-xl mx-auto w-full">
+                        <h3 className="text-center text-slate-400 text-sm font-bold mb-4 flex items-center justify-center gap-2">
+                            <History className="w-4 h-4" />
+                            {t('previousSessions')}
+                        </h3>
+                        <div className="grid gap-2">
+                            {sessions.slice(0, 3).map(session => (
+                                <button
+                                    key={session.id}
+                                    onClick={() => loadSession(session)}
+                                    className={`bg-white border border-slate-200 hover:border-[#C5A059] p-3 rounded-lg ${isRTL ? 'text-right' : 'text-left'} text-sm text-slate-700 hover:bg-[#fdfbf7] transition-all flex justify-between items-center group`}
+                                >
+                                    <div className="flex items-center gap-3 overflow-hidden">
+                                        <MessageSquare className="w-4 h-4 text-slate-400 shrink-0" />
+                                        <span className="truncate">{session.title}</span>
+                                    </div>
+                                    <span className="text-xs text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        {new Date(session.date).toLocaleDateString(language === 'ar' ? 'ar-IQ' : language)}
+                                    </span>
+                                </button>
+                            ))}
                         </div>
                     </div>
+                )}
 
-                    {/* Previous Sessions in Intro */}
-                    {sessions.length > 0 && (
-                        <div className="max-w-xl mx-auto w-full">
-                            <h3 className="text-center text-slate-400 text-sm font-bold mb-4 flex items-center justify-center gap-2">
-                                <History className="w-4 h-4" />
-                                {t('previousSessions')}
-                            </h3>
-                            <div className="grid gap-2">
-                                {sessions.slice(0, 3).map(session => (
-                                    <button
-                                        key={session.id}
-                                        onClick={() => loadSession(session)}
-                                        className={`bg-white border border-slate-200 hover:border-[#C5A059] p-3 rounded-lg ${isRTL ? 'text-right' : 'text-left'} text-sm text-slate-700 hover:bg-[#fdfbf7] transition-all flex justify-between items-center group`}
-                                    >
-                                        <div className="flex items-center gap-3 overflow-hidden">
-                                            <MessageSquare className="w-4 h-4 text-slate-400 shrink-0" />
-                                            <span className="truncate">{session.title}</span>
+                <div className="text-center mt-12 text-slate-400 text-xs leading-relaxed">
+                    {t('footer')}
+                    <br />
+                    {t('footer2')}
+                </div>
+            </div>
+        </div>
+    );
+}
+
+
+
+// --- Main App Interface ---
+return (
+    <div dir={isRTL ? 'rtl' : 'ltr'} className={`flex h-screen ${COLORS.bgLight} text-slate-800 font-sans overflow-hidden ${language === 'ur' ? 'urdu-text' : ''} ${language === 'fa' ? 'persian-text' : ''}`}>
+
+        {/* Background Pattern */}
+        <div className="absolute inset-0 pointer-events-none bg-pattern z-0" />
+
+        {/* Mobile Overlay */}
+        {isSidebarOpen && (
+            <div
+                className="fixed inset-0 bg-black/50 z-40 md:hidden backdrop-blur-sm transition-opacity"
+                onClick={() => setIsSidebarOpen(false)}
+            />
+        )}
+
+        {/* Sidebar / Settings Panel */}
+        <aside className={`fixed inset-y-0 ${isRTL ? 'right-0' : 'left-0'} z-50 w-80 ${COLORS.primary} text-white flex flex-col shadow-xl transition-transform duration-300 ease-in-out md:relative md:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : (isRTL ? 'translate-x-full' : '-translate-x-full')}`}>
+            <div className="p-6 border-b border-teal-800 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                    <div className="p-2 bg-white/10 rounded-lg cursor-pointer hover:bg-white/20 transition-colors" onClick={goToHome}>
+                        <Scroll className={`w-8 h-8 ${COLORS.accentText}`} />
+                    </div>
+                    <div>
+                        <h1 className={`font-bold text-lg leading-tight ${COLORS.accentText}`}>{t('appName')}</h1>
+                    </div>
+                </div>
+                {/* Close Button Mobile */}
+                <button onClick={() => setIsSidebarOpen(false)} className="md:hidden text-teal-200 hover:text-white p-1">
+                    <X className="w-6 h-6" />
+                </button>
+            </div>
+
+            {/* New Chat Button */}
+            <div className="p-4 pb-2">
+                <button
+                    onClick={() => goToHome()}
+                    className={`w-full flex items-center gap-2 bg-[#C5A059] hover:bg-[#B08D55] text-white py-3 px-4 rounded-xl font-bold shadow-lg transition-all transform hover:scale-[1.02]`}
+                >
+                    <Plus className="w-5 h-5" />
+                    <span>{t('newChat')}</span>
+                </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-4 py-2 custom-scrollbar">
+
+                {/* Chat History Section */}
+                {sessions.length > 0 && (
+                    <div className="mb-6">
+                        <h3 className={`text-xs font-semibold text-teal-300 uppercase tracking-wider mb-3 flex items-center gap-2 px-2`}>
+                            <History className="w-3 h-3" />
+                            {t('history')}
+                        </h3>
+                        <div className="space-y-1">
+                            {sessions.map(session => (
+                                <div
+                                    key={session.id}
+                                    onClick={() => loadSession(session)}
+                                    className={`group flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all border border-transparent ${currentSessionId === session.id
+                                        ? 'bg-white/10 border-teal-700/50 text-white shadow-sm'
+                                        : 'text-teal-100 hover:bg-[#005a4e] hover:text-white'
+                                        }`}
+                                >
+                                    <div className="flex items-center gap-3 overflow-hidden">
+                                        <MessageSquare className={`w-4 h-4 shrink-0 ${currentSessionId === session.id ? 'text-[#C5A059]' : 'opacity-50'}`} />
+                                        <div className="flex flex-col min-w-0">
+                                            <span className="text-sm truncate font-medium block">{session.title}</span>
+                                            <span className="text-[10px] opacity-60 truncate">
+                                                {new Date(session.date).toLocaleDateString(language === 'ar' ? 'ar-IQ' : language)}
+                                            </span>
                                         </div>
-                                        <span className="text-xs text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            {new Date(session.date).toLocaleDateString(language === 'ar' ? 'ar-IQ' : language)}
-                                        </span>
+                                    </div>
+                                    <button
+                                        onClick={(e) => deleteSession(e, session.id)}
+                                        className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-900/50 rounded text-red-300 hover:text-red-200 transition-all"
+                                        title={t('delete')}
+                                    >
+                                        <Trash2 className="w-3 h-3" />
                                     </button>
-                                ))}
-                            </div>
+                                </div>
+                            ))}
                         </div>
+                    </div>
+                )}
+
+                {/* Language Selection */}
+                <div className="mb-6 pt-4 border-t border-teal-800/50">
+                    <h3 className={`text-xs font-semibold text-teal-300 uppercase tracking-wider mb-3 flex items-center gap-2 px-2`}>
+                        <Globe className="w-3 h-3" />
+                        {t('language')}
+                    </h3>
+                    <select
+                        value={language}
+                        onChange={(e) => setLanguage(e.target.value as Language)}
+                        className="w-full bg-teal-800/50 text-white p-3 rounded-lg border border-teal-700 focus:outline-none focus:ring-2 focus:ring-[#C5A059] cursor-pointer"
+                    >
+                        {(Object.keys(languageNames) as Language[]).map(lang => (
+                            <option key={lang} value={lang}>{languageNames[lang]}</option>
+                        ))}
+                    </select>
+                </div>
+
+                {/* Settings Section */}
+                <div className="mb-8 pt-4 border-t border-teal-800/50">
+                    <h3 className={`text-xs font-semibold text-teal-300 uppercase tracking-wider mb-3 flex items-center gap-2 px-2`}>
+                        <Settings className="w-3 h-3" />
+                        {t('settings')}
+                    </h3>
+
+                    {/* Install Button (Desktop) */}
+                    {deferredPrompt && (
+                        <button
+                            onClick={handleInstallClick}
+                            className="w-full flex items-center gap-2 bg-teal-800/50 hover:bg-teal-700 text-teal-100 p-3 rounded-lg mb-4 border border-teal-700 transition-colors"
+                        >
+                            <Download className="w-4 h-4 text-[#C5A059]" />
+                            <span className="text-sm font-bold">{t('installApp')}</span>
+                        </button>
                     )}
 
-                    <div className="text-center mt-12 text-slate-400 text-xs leading-relaxed">
-                        {t('footer')}
-                        <br />
-                        {t('footer2')}
+                    <div className="space-y-2">
+                        <label className={`group block p-3 rounded-lg border transition-all cursor-pointer relative overflow-hidden ${mode === 'MODE_LITERAL' ? `border-[#C5A059] bg-[#00695C]` : 'border-teal-800 hover:bg-[#005a4e]'}`}>
+                            <input
+                                type="radio"
+                                name="mode"
+                                value="MODE_LITERAL"
+                                checked={mode === 'MODE_LITERAL'}
+                                onChange={() => setMode('MODE_LITERAL')}
+                                className="hidden"
+                            />
+                            <div className={`font-bold text-sm flex items-center justify-between ${mode === 'MODE_LITERAL' ? 'text-white' : 'text-teal-100'}`}>
+                                <span className="flex items-center gap-2"><FileText className="w-3 h-3" /> {t('literalMode')}</span>
+                                {mode === 'MODE_LITERAL' && <CheckCircle2 className="w-3 h-3 text-[#C5A059]" />}
+                            </div>
+                        </label>
+
+                        <label className={`group block p-3 rounded-lg border transition-all cursor-pointer relative overflow-hidden ${mode === 'MODE_UNDERSTANDING' ? `border-[#C5A059] bg-[#00695C]` : 'border-teal-800 hover:bg-[#005a4e]'}`}>
+                            <input
+                                type="radio"
+                                name="mode"
+                                value="MODE_UNDERSTANDING"
+                                checked={mode === 'MODE_UNDERSTANDING'}
+                                onChange={() => setMode('MODE_UNDERSTANDING')}
+                                className="hidden"
+                            />
+                            <div className={`font-bold text-sm flex items-center justify-between ${mode === 'MODE_UNDERSTANDING' ? 'text-white' : 'text-teal-100'}`}>
+                                <span className="flex items-center gap-2"><BookOpen className="w-3 h-3" /> {t('understandingMode')}</span>
+                                {mode === 'MODE_UNDERSTANDING' && <CheckCircle2 className="w-3 h-3 text-[#C5A059]" />}
+                            </div>
+                        </label>
                     </div>
                 </div>
             </div>
-        );
-    }
 
+            <div className="p-4 bg-[#00352c] border-t border-teal-800">
+                <div className="text-[10px] text-center text-teal-300 leading-relaxed px-2">
+                    {t('footer')}
+                    <br />
+                    {t('footer2')}
+                </div>
+            </div>
+        </aside>
 
+        {/* Main Chat Area */}
+        <main className="flex-1 flex flex-col h-full relative z-0">
 
-    // --- Main App Interface ---
-    return (
-        <div dir={isRTL ? 'rtl' : 'ltr'} className={`flex h-screen ${COLORS.bgLight} text-slate-800 font-sans overflow-hidden ${language === 'ur' ? 'urdu-text' : ''} ${language === 'fa' ? 'persian-text' : ''}`}>
-
-            {/* Background Pattern */}
-            <div className="absolute inset-0 pointer-events-none bg-pattern z-0" />
-
-            {/* Mobile Overlay */}
-            {isSidebarOpen && (
-                <div
-                    className="fixed inset-0 bg-black/50 z-40 md:hidden backdrop-blur-sm transition-opacity"
-                    onClick={() => setIsSidebarOpen(false)}
-                />
-            )}
-
-            {/* Sidebar / Settings Panel */}
-            <aside className={`fixed inset-y-0 ${isRTL ? 'right-0' : 'left-0'} z-50 w-80 ${COLORS.primary} text-white flex flex-col shadow-xl transition-transform duration-300 ease-in-out md:relative md:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : (isRTL ? 'translate-x-full' : '-translate-x-full')}`}>
-                <div className="p-6 border-b border-teal-800 flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 bg-white/10 rounded-lg cursor-pointer hover:bg-white/20 transition-colors" onClick={goToHome}>
-                            <Scroll className={`w-8 h-8 ${COLORS.accentText}`} />
-                        </div>
+            {/* Mobile Header */}
+            <header className={`md:hidden ${COLORS.primary} text-white p-4 flex justify-between items-center shadow-md z-10 sticky top-0`}>
+                <div className="flex items-center gap-2">
+                    <button onClick={() => setIsSidebarOpen(true)} className={`p-2 ${isRTL ? '-mr-2' : '-ml-2'} text-teal-100 hover:text-white rounded-md hover:bg-white/10 transition-colors`}>
+                        <Menu className="w-6 h-6" />
+                    </button>
+                    <div className="flex items-center gap-2" onClick={goToHome}>
+                        <Scroll className={`w-6 h-6 text-[#C5A059] ${isRTL ? 'ml-2' : 'mr-2'}`} />
                         <div>
-                            <h1 className={`font-bold text-lg leading-tight ${COLORS.accentText}`}>{t('appName')}</h1>
+                            <h1 className="font-bold text-sm">{t('appName')}</h1>
                         </div>
                     </div>
-                    {/* Close Button Mobile */}
-                    <button onClick={() => setIsSidebarOpen(false)} className="md:hidden text-teal-200 hover:text-white p-1">
-                        <X className="w-6 h-6" />
+                </div>
+                <div className="flex gap-2">
+                    {/* Install Button (Mobile) */}
+                    {deferredPrompt && (
+                        <button onClick={handleInstallClick} className="p-2 bg-teal-800 rounded-md text-white border border-teal-600">
+                            <Download className="w-4 h-4" />
+                        </button>
+                    )}
+                    <button onClick={goToHome} className="p-2 bg-[#C5A059] rounded-md text-white">
+                        <Plus className="w-4 h-4" />
                     </button>
                 </div>
+            </header>
 
-                {/* New Chat Button */}
-                <div className="p-4 pb-2">
-                    <button
-                        onClick={() => goToHome()}
-                        className={`w-full flex items-center gap-2 bg-[#C5A059] hover:bg-[#B08D55] text-white py-3 px-4 rounded-xl font-bold shadow-lg transition-all transform hover:scale-[1.02]`}
-                    >
-                        <Plus className="w-5 h-5" />
-                        <span>{t('newChat')}</span>
-                    </button>
-                </div>
+            {/* Messages List */}
+            <div className="flex-1 overflow-y-auto p-2 sm:p-4 md:p-8 space-y-4 md:space-y-6">
+                {messages.map((msg, idx) => (
+                    <div key={idx} className={`flex gap-2 sm:gap-4 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
 
-                <div className="flex-1 overflow-y-auto px-4 py-2 custom-scrollbar">
+                        {/* Avatar */}
+                        <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center shrink-0 shadow-md border-2 ${msg.role === 'user'
+                            ? 'bg-[#004D40] border-[#00695C] text-white'
+                            : 'bg-white border-[#C5A059] text-[#004D40]'
+                            }`}>
+                            {msg.role === 'user' ? <User className="w-4 h-4 sm:w-5 sm:h-5" /> : <Scroll className="w-4 h-4 sm:w-5 sm:h-5" />}
+                        </div>
 
-                    {/* Chat History Section */}
-                    {sessions.length > 0 && (
-                        <div className="mb-6">
-                            <h3 className={`text-xs font-semibold text-teal-300 uppercase tracking-wider mb-3 flex items-center gap-2 px-2`}>
-                                <History className="w-3 h-3" />
-                                {t('history')}
-                            </h3>
-                            <div className="space-y-1">
-                                {sessions.map(session => (
-                                    <div
-                                        key={session.id}
-                                        onClick={() => loadSession(session)}
-                                        className={`group flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all border border-transparent ${currentSessionId === session.id
-                                            ? 'bg-white/10 border-teal-700/50 text-white shadow-sm'
-                                            : 'text-teal-100 hover:bg-[#005a4e] hover:text-white'
-                                            }`}
-                                    >
-                                        <div className="flex items-center gap-3 overflow-hidden">
-                                            <MessageSquare className={`w-4 h-4 shrink-0 ${currentSessionId === session.id ? 'text-[#C5A059]' : 'opacity-50'}`} />
-                                            <div className="flex flex-col min-w-0">
-                                                <span className="text-sm truncate font-medium block">{session.title}</span>
-                                                <span className="text-[10px] opacity-60 truncate">
-                                                    {new Date(session.date).toLocaleDateString(language === 'ar' ? 'ar-IQ' : language)}
-                                                </span>
-                                            </div>
-                                        </div>
-                                        <button
-                                            onClick={(e) => deleteSession(e, session.id)}
-                                            className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-900/50 rounded text-red-300 hover:text-red-200 transition-all"
-                                            title={t('delete')}
-                                        >
-                                            <Trash2 className="w-3 h-3" />
-                                        </button>
-                                    </div>
-                                ))}
+                        {/* Bubble */}
+                        <div className={`max-w-[85%] sm:max-w-[90%] md:max-w-[75%] rounded-2xl px-3 sm:px-5 md:px-6 py-3 sm:py-4 shadow-sm ${msg.role === 'user'
+                            ? `bg-[#004D40] text-white ${isRTL ? 'rounded-tr-none' : 'rounded-tl-none'}`
+                            : `bg-white ${isRTL ? 'border-r-4' : 'border-l-4'} border-[#C5A059] text-slate-800 ${isRTL ? 'rounded-tl-none' : 'rounded-tr-none'}`
+                            }`}>
+                            <div className={`markdown-body text-sm sm:text-base leading-relaxed sm:leading-loose ${isRTL ? 'text-right' : 'text-left'} ${msg.role === 'user' ? 'text-white' : ''}`}>
+                                <ReactMarkdown>{msg.text}</ReactMarkdown>
+                            </div>
+                            {/* Feedback Buttons for AI messages */}
+                            {msg.role === 'model' && idx > 0 && (
+                                <div className={`flex items-center gap-1 mt-3 pt-2 border-t border-slate-100 ${isRTL ? 'justify-start' : 'justify-start'}`}>
+                                    <button onClick={() => handleCopy(msg.text, idx)} className={`p-1.5 rounded-lg text-xs flex items-center gap-1 transition-all ${copiedIdx === idx ? 'bg-green-100 text-green-600' : 'text-slate-400 hover:text-[#004D40] hover:bg-slate-100'}`} title={t('copy')}>
+                                        {copiedIdx === idx ? <><CheckCircle2 className="w-3.5 h-3.5" /> {t('copied')}</> : <><Copy className="w-3.5 h-3.5" /> {t('copy')}</>}
+                                    </button>
+                                    {(() => {
+                                        let q = '';
+                                        for (let i = idx - 1; i >= 0; i--) { if (messages[i].role === 'user') { q = messages[i].text; break; } }
+                                        const fbKey = `${q}::${msg.text.substring(0, 50)}`;
+                                        return (
+                                            <>
+                                                <button onClick={() => handleFeedback(idx, 'like')} className={`p-1.5 rounded-lg text-xs flex items-center gap-1 transition-all ${feedbackMap[fbKey] === 'like' ? 'bg-green-100 text-green-600' : 'text-slate-400 hover:text-green-600 hover:bg-green-50'}`} title={t('like')}>
+                                                    <ThumbsUp className="w-3.5 h-3.5" />
+                                                </button>
+                                                <button onClick={() => handleFeedback(idx, 'dislike')} className={`p-1.5 rounded-lg text-xs flex items-center gap-1 transition-all ${feedbackMap[fbKey] === 'dislike' ? 'bg-red-100 text-red-500' : 'text-slate-400 hover:text-red-500 hover:bg-red-50'}`} title={t('dislike')}>
+                                                    <ThumbsDown className="w-3.5 h-3.5" />
+                                                </button>
+                                            </>
+                                        );
+                                    })()}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                ))}
+
+                {isLoading && (
+                    <div className="flex gap-4 animate-fade-in-up">
+                        <div className="w-10 h-10 rounded-full bg-white border-2 border-[#C5A059] text-[#004D40] flex items-center justify-center shrink-0 shadow-[0_0_15px_rgba(197,160,89,0.3)]">
+                            <Scroll className="w-5 h-5 animate-pulse" />
+                        </div>
+                        <div className={`bg-gray-50/80 backdrop-blur-sm border ${isRTL ? 'border-r-4' : 'border-l-4'} border-[#C5A059] border-y-slate-200 border-x-slate-200 rounded-2xl ${isRTL ? 'rounded-tl-none' : 'rounded-tr-none'} px-6 py-4 shadow-sm`}>
+                            <div className="flex items-center gap-3 text-teal-700 text-sm font-semibold">
+                                <div className="flex gap-1">
+                                    <span className="w-2 h-2 bg-[#C5A059] rounded-full animate-bounce"></span>
+                                    <span className="w-2 h-2 bg-[#C5A059] rounded-full animate-bounce delay-75"></span>
+                                    <span className="w-2 h-2 bg-[#C5A059] rounded-full animate-bounce delay-150"></span>
+                                </div>
+                                <span className="animate-pulse text-teal-800">
+                                    {t(`loadingStep${loadingStep}`)}
+                                </span>
                             </div>
                         </div>
-                    )}
+                    </div>
+                )}
+                <div ref={bottomRef} />
+            </div>
 
-                    {/* Language Selection */}
-                    <div className="mb-6 pt-4 border-t border-teal-800/50">
-                        <h3 className={`text-xs font-semibold text-teal-300 uppercase tracking-wider mb-3 flex items-center gap-2 px-2`}>
-                            <Globe className="w-3 h-3" />
-                            {t('language')}
-                        </h3>
-                        <select
-                            value={language}
-                            onChange={(e) => setLanguage(e.target.value as Language)}
-                            className="w-full bg-teal-800/50 text-white p-3 rounded-lg border border-teal-700 focus:outline-none focus:ring-2 focus:ring-[#C5A059] cursor-pointer"
+            {/* Input Area */}
+            <div className="bg-white p-4 md:p-6 border-t border-slate-200 shadow-[0_-4px_10px_-1px_rgba(0,0,0,0.05)] relative z-10">
+                <div className="max-w-4xl mx-auto relative">
+                    <div className={`absolute top-0 ${isRTL ? 'right-0' : 'left-0'} -mt-10 mb-2 flex ${isRTL ? 'justify-end' : 'justify-start'} w-full px-2 pointer-events-none`}>
+                        <span className={`bg-[#004D40] text-[#C5A059] text-xs px-3 py-1 ${isRTL ? 'rounded-t-lg' : 'rounded-t-lg'} opacity-0 md:opacity-100 transition-opacity shadow-sm border-t border-x border-[#00695C]`}>
+                            {mode === 'MODE_LITERAL' ? t('modeLiteral') : t('modeUnderstanding')}
+                        </span>
+                    </div>
+
+                    <div className="relative flex items-end gap-2 bg-[#f8fafc]/80 backdrop-blur-md border border-slate-300 rounded-xl p-2 focus-within:ring-2 focus-within:ring-[#004D40] focus-within:border-[#004D40] transition-all shadow-inner">
+                        <textarea
+                            value={input}
+                            onChange={(e) => setInput(e.target.value)}
+                            onKeyDown={handleKeyDown}
+                            placeholder={t('placeholder')}
+                            className={`w-full bg-transparent border-none focus:ring-0 resize-none max-h-32 min-h-[50px] py-3 px-2 text-slate-800 placeholder-slate-400 font-medium text-sm sm:text-base ${isRTL ? 'text-right' : 'text-left'} scrollbar-hide`}
+                            rows={1}
+                            style={{ height: 'auto', minHeight: '50px' }}
+                        />
+                        <button
+                            onClick={toggleRecording}
+                            className={`mb-1 p-3 rounded-lg transition-all shadow-md flex items-center justify-center border ${isRecording
+                                ? 'bg-red-500 hover:bg-red-600 text-white animate-pulse border-red-400 glow-red'
+                                : 'bg-white text-slate-500 hover:text-[#004D40] hover:bg-slate-100 border-slate-200'
+                                }`}
+                            title={t('voiceRecording')}
                         >
-                            {(Object.keys(languageNames) as Language[]).map(lang => (
-                                <option key={lang} value={lang}>{languageNames[lang]}</option>
-                            ))}
-                        </select>
-                    </div>
-
-                    {/* Settings Section */}
-                    <div className="mb-8 pt-4 border-t border-teal-800/50">
-                        <h3 className={`text-xs font-semibold text-teal-300 uppercase tracking-wider mb-3 flex items-center gap-2 px-2`}>
-                            <Settings className="w-3 h-3" />
-                            {t('settings')}
-                        </h3>
-
-                        {/* Install Button (Desktop) */}
-                        {deferredPrompt && (
-                            <button
-                                onClick={handleInstallClick}
-                                className="w-full flex items-center gap-2 bg-teal-800/50 hover:bg-teal-700 text-teal-100 p-3 rounded-lg mb-4 border border-teal-700 transition-colors"
-                            >
-                                <Download className="w-4 h-4 text-[#C5A059]" />
-                                <span className="text-sm font-bold">{t('installApp')}</span>
-                            </button>
-                        )}
-
-                        <div className="space-y-2">
-                            <label className={`group block p-3 rounded-lg border transition-all cursor-pointer relative overflow-hidden ${mode === 'MODE_LITERAL' ? `border-[#C5A059] bg-[#00695C]` : 'border-teal-800 hover:bg-[#005a4e]'}`}>
-                                <input
-                                    type="radio"
-                                    name="mode"
-                                    value="MODE_LITERAL"
-                                    checked={mode === 'MODE_LITERAL'}
-                                    onChange={() => setMode('MODE_LITERAL')}
-                                    className="hidden"
-                                />
-                                <div className={`font-bold text-sm flex items-center justify-between ${mode === 'MODE_LITERAL' ? 'text-white' : 'text-teal-100'}`}>
-                                    <span className="flex items-center gap-2"><FileText className="w-3 h-3" /> {t('literalMode')}</span>
-                                    {mode === 'MODE_LITERAL' && <CheckCircle2 className="w-3 h-3 text-[#C5A059]" />}
-                                </div>
-                            </label>
-
-                            <label className={`group block p-3 rounded-lg border transition-all cursor-pointer relative overflow-hidden ${mode === 'MODE_UNDERSTANDING' ? `border-[#C5A059] bg-[#00695C]` : 'border-teal-800 hover:bg-[#005a4e]'}`}>
-                                <input
-                                    type="radio"
-                                    name="mode"
-                                    value="MODE_UNDERSTANDING"
-                                    checked={mode === 'MODE_UNDERSTANDING'}
-                                    onChange={() => setMode('MODE_UNDERSTANDING')}
-                                    className="hidden"
-                                />
-                                <div className={`font-bold text-sm flex items-center justify-between ${mode === 'MODE_UNDERSTANDING' ? 'text-white' : 'text-teal-100'}`}>
-                                    <span className="flex items-center gap-2"><BookOpen className="w-3 h-3" /> {t('understandingMode')}</span>
-                                    {mode === 'MODE_UNDERSTANDING' && <CheckCircle2 className="w-3 h-3 text-[#C5A059]" />}
-                                </div>
-                            </label>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="p-4 bg-[#00352c] border-t border-teal-800">
-                    <div className="text-[10px] text-center text-teal-300 leading-relaxed px-2">
-                        {t('footer')}
-                        <br />
-                        {t('footer2')}
-                    </div>
-                </div>
-            </aside>
-
-            {/* Main Chat Area */}
-            <main className="flex-1 flex flex-col h-full relative z-0">
-
-                {/* Mobile Header */}
-                <header className={`md:hidden ${COLORS.primary} text-white p-4 flex justify-between items-center shadow-md z-10 sticky top-0`}>
-                    <div className="flex items-center gap-2">
-                        <button onClick={() => setIsSidebarOpen(true)} className={`p-2 ${isRTL ? '-mr-2' : '-ml-2'} text-teal-100 hover:text-white rounded-md hover:bg-white/10 transition-colors`}>
-                            <Menu className="w-6 h-6" />
+                            {isRecording ? <StopCircle className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
                         </button>
-                        <div className="flex items-center gap-2" onClick={goToHome}>
-                            <Scroll className={`w-6 h-6 text-[#C5A059] ${isRTL ? 'ml-2' : 'mr-2'}`} />
-                            <div>
-                                <h1 className="font-bold text-sm">{t('appName')}</h1>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="flex gap-2">
-                        {/* Install Button (Mobile) */}
-                        {deferredPrompt && (
-                            <button onClick={handleInstallClick} className="p-2 bg-teal-800 rounded-md text-white border border-teal-600">
-                                <Download className="w-4 h-4" />
-                            </button>
-                        )}
-                        <button onClick={goToHome} className="p-2 bg-[#C5A059] rounded-md text-white">
-                            <Plus className="w-4 h-4" />
+                        <button
+                            onClick={() => handleSend()}
+                            disabled={!input.trim() || isLoading}
+                            className={`mb-1 p-3 ${COLORS.accent} ${COLORS.accentHover} text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 shadow-md transform hover:-translate-y-0.5`}
+                        >
+                            <Send className={`w-5 h-5 ${isLoading ? 'opacity-0' : ''}`} />
+                            {isLoading && <div className="absolute inset-0 flex items-center justify-center">
+                                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                            </div>}
                         </button>
                     </div>
-                </header>
-
-                {/* Messages List */}
-                <div className="flex-1 overflow-y-auto p-2 sm:p-4 md:p-8 space-y-4 md:space-y-6">
-                    {messages.map((msg, idx) => (
-                        <div key={idx} className={`flex gap-2 sm:gap-4 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
-
-                            {/* Avatar */}
-                            <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center shrink-0 shadow-md border-2 ${msg.role === 'user'
-                                ? 'bg-[#004D40] border-[#00695C] text-white'
-                                : 'bg-white border-[#C5A059] text-[#004D40]'
-                                }`}>
-                                {msg.role === 'user' ? <User className="w-4 h-4 sm:w-5 sm:h-5" /> : <Scroll className="w-4 h-4 sm:w-5 sm:h-5" />}
-                            </div>
-
-                            {/* Bubble */}
-                            <div className={`max-w-[85%] sm:max-w-[90%] md:max-w-[75%] rounded-2xl px-3 sm:px-5 md:px-6 py-3 sm:py-4 shadow-sm ${msg.role === 'user'
-                                ? `bg-[#004D40] text-white ${isRTL ? 'rounded-tr-none' : 'rounded-tl-none'}`
-                                : `bg-white ${isRTL ? 'border-r-4' : 'border-l-4'} border-[#C5A059] text-slate-800 ${isRTL ? 'rounded-tl-none' : 'rounded-tr-none'}`
-                                }`}>
-                                <div className={`markdown-body text-sm sm:text-base leading-relaxed sm:leading-loose ${isRTL ? 'text-right' : 'text-left'} ${msg.role === 'user' ? 'text-white' : ''}`}>
-                                    <ReactMarkdown>{msg.text}</ReactMarkdown>
-                                </div>
-                                {/* Feedback Buttons for AI messages */}
-                                {msg.role === 'model' && idx > 0 && (
-                                    <div className={`flex items-center gap-1 mt-3 pt-2 border-t border-slate-100 ${isRTL ? 'justify-start' : 'justify-start'}`}>
-                                        <button onClick={() => handleCopy(msg.text, idx)} className={`p-1.5 rounded-lg text-xs flex items-center gap-1 transition-all ${copiedIdx === idx ? 'bg-green-100 text-green-600' : 'text-slate-400 hover:text-[#004D40] hover:bg-slate-100'}`} title={t('copy')}>
-                                            {copiedIdx === idx ? <><CheckCircle2 className="w-3.5 h-3.5" /> {t('copied')}</> : <><Copy className="w-3.5 h-3.5" /> {t('copy')}</>}
-                                        </button>
-                                        {(() => {
-                                            let q = '';
-                                            for (let i = idx - 1; i >= 0; i--) { if (messages[i].role === 'user') { q = messages[i].text; break; } }
-                                            const fbKey = `${q}::${msg.text.substring(0, 50)}`;
-                                            return (
-                                                <>
-                                                    <button onClick={() => handleFeedback(idx, 'like')} className={`p-1.5 rounded-lg text-xs flex items-center gap-1 transition-all ${feedbackMap[fbKey] === 'like' ? 'bg-green-100 text-green-600' : 'text-slate-400 hover:text-green-600 hover:bg-green-50'}`} title={t('like')}>
-                                                        <ThumbsUp className="w-3.5 h-3.5" />
-                                                    </button>
-                                                    <button onClick={() => handleFeedback(idx, 'dislike')} className={`p-1.5 rounded-lg text-xs flex items-center gap-1 transition-all ${feedbackMap[fbKey] === 'dislike' ? 'bg-red-100 text-red-500' : 'text-slate-400 hover:text-red-500 hover:bg-red-50'}`} title={t('dislike')}>
-                                                        <ThumbsDown className="w-3.5 h-3.5" />
-                                                    </button>
-                                                </>
-                                            );
-                                        })()}
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    ))}
-
-                    {isLoading && (
-                        <div className="flex gap-4 animate-fade-in-up">
-                            <div className="w-10 h-10 rounded-full bg-white border-2 border-[#C5A059] text-[#004D40] flex items-center justify-center shrink-0 shadow-[0_0_15px_rgba(197,160,89,0.3)]">
-                                <Scroll className="w-5 h-5 animate-pulse" />
-                            </div>
-                            <div className={`bg-gray-50/80 backdrop-blur-sm border ${isRTL ? 'border-r-4' : 'border-l-4'} border-[#C5A059] border-y-slate-200 border-x-slate-200 rounded-2xl ${isRTL ? 'rounded-tl-none' : 'rounded-tr-none'} px-6 py-4 shadow-sm`}>
-                                <div className="flex items-center gap-3 text-teal-700 text-sm font-semibold">
-                                    <div className="flex gap-1">
-                                        <span className="w-2 h-2 bg-[#C5A059] rounded-full animate-bounce"></span>
-                                        <span className="w-2 h-2 bg-[#C5A059] rounded-full animate-bounce delay-75"></span>
-                                        <span className="w-2 h-2 bg-[#C5A059] rounded-full animate-bounce delay-150"></span>
-                                    </div>
-                                    <span className="animate-pulse text-teal-800">
-                                        {t(`loadingStep${loadingStep}`)}
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                    <div ref={bottomRef} />
-                </div>
-
-                {/* Input Area */}
-                <div className="bg-white p-4 md:p-6 border-t border-slate-200 shadow-[0_-4px_10px_-1px_rgba(0,0,0,0.05)] relative z-10">
-                    <div className="max-w-4xl mx-auto relative">
-                        <div className={`absolute top-0 ${isRTL ? 'right-0' : 'left-0'} -mt-10 mb-2 flex ${isRTL ? 'justify-end' : 'justify-start'} w-full px-2 pointer-events-none`}>
-                            <span className={`bg-[#004D40] text-[#C5A059] text-xs px-3 py-1 ${isRTL ? 'rounded-t-lg' : 'rounded-t-lg'} opacity-0 md:opacity-100 transition-opacity shadow-sm border-t border-x border-[#00695C]`}>
-                                {mode === 'MODE_LITERAL' ? t('modeLiteral') : t('modeUnderstanding')}
-                            </span>
-                        </div>
-
-                        <div className="relative flex items-end gap-2 bg-[#f8fafc]/80 backdrop-blur-md border border-slate-300 rounded-xl p-2 focus-within:ring-2 focus-within:ring-[#004D40] focus-within:border-[#004D40] transition-all shadow-inner">
-                            <textarea
-                                value={input}
-                                onChange={(e) => setInput(e.target.value)}
-                                onKeyDown={handleKeyDown}
-                                placeholder={t('placeholder')}
-                                className={`w-full bg-transparent border-none focus:ring-0 resize-none max-h-32 min-h-[50px] py-3 px-2 text-slate-800 placeholder-slate-400 font-medium text-sm sm:text-base ${isRTL ? 'text-right' : 'text-left'} scrollbar-hide`}
-                                rows={1}
-                                style={{ height: 'auto', minHeight: '50px' }}
-                            />
-                            <button
-                                onClick={toggleRecording}
-                                className={`mb-1 p-3 rounded-lg transition-all shadow-md flex items-center justify-center border ${isRecording
-                                    ? 'bg-red-500 hover:bg-red-600 text-white animate-pulse border-red-400 glow-red'
-                                    : 'bg-white text-slate-500 hover:text-[#004D40] hover:bg-slate-100 border-slate-200'
-                                    }`}
-                                title={t('voiceRecording')}
-                            >
-                                {isRecording ? <StopCircle className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
-                            </button>
-                            <button
-                                onClick={() => handleSend()}
-                                disabled={!input.trim() || isLoading}
-                                className={`mb-1 p-3 ${COLORS.accent} ${COLORS.accentHover} text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 shadow-md transform hover:-translate-y-0.5`}
-                            >
-                                <Send className={`w-5 h-5 ${isLoading ? 'opacity-0' : ''}`} />
-                                {isLoading && <div className="absolute inset-0 flex items-center justify-center">
-                                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                                </div>}
-                            </button>
-                        </div>
-                        <div className="text-center mt-3">
-                            <p className="text-[10px] text-slate-400 font-serif leading-relaxed">
-                                {t('footer')}
-                                <br />
-                                {t('footer2')}
-                            </p>
-                        </div>
+                    <div className="text-center mt-3">
+                        <p className="text-[10px] text-slate-400 font-serif leading-relaxed">
+                            {t('footer')}
+                            <br />
+                            {t('footer2')}
+                        </p>
                     </div>
                 </div>
-            </main>
-        </div>
-    );
+            </div>
+        </main>
+    </div>
+);
 };
 
 const root = createRoot(document.getElementById('root')!);
