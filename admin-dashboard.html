@@ -517,35 +517,56 @@
                                 ),
                                 chatSessions.length === 0
                                     ? h('div', { className: 'p-8 text-center text-white/30 text-sm' }, 'لا توجد جلسات دردشة بعد.')
-                                    : h('div', { className: 'overflow-x-auto' },
-                                        h('table', { className: 'w-full text-sm' },
-                                            h('thead', null,
-                                                h('tr', { className: 'text-white/40 text-xs' },
-                                                    h('th', { className: 'text-right p-3 font-medium' }, 'العنوان'),
-                                                    h('th', { className: 'text-right p-3 font-medium' }, 'الوضع'),
-                                                    h('th', { className: 'text-right p-3 font-medium' }, 'الرسائل'),
-                                                    h('th', { className: 'text-right p-3 font-medium' }, 'توكنات'),
-                                                    h('th', { className: 'text-right p-3 font-medium' }, 'التكلفة'),
-                                                    h('th', { className: 'text-right p-3 font-medium' }, 'تاريخ الجلسة'),
-                                                    h('th', { className: 'text-right p-3 font-medium' }, '')
-                                                )
-                                            ),
-                                            h('tbody', null,
-                                                chatSessions.map(function (session) {
-                                                    var sStats = getSessionStats(session.id);
-                                                    return h('tr', { key: session.id, className: 'table-row cursor-pointer flex-col md:table-row', onClick: function () { setSelectedUserId(session.id); } },
-                                                        h('td', { className: 'p-3 font-bold text-white/80 max-w-[200px] truncate block md:table-cell' }, session.title),
-                                                        h('td', { className: 'p-3' }, h('span', { className: 'badge', style: { background: 'rgba(168,85,247,0.15)', color: '#c084fc', border: '1px solid rgba(168,85,247,0.3)' } }, session.mode === 'MODE_LITERAL' ? 'حرفي' : 'فهم')),
-                                                        h('td', { className: 'p-3 text-blue-400 font-bold block md:table-cell' }, session.messages ? session.messages.length : 0),
-                                                        h('td', { className: 'p-3 text-green-400 block md:table-cell' }, formatNumber(sStats.input + sStats.output)),
-                                                        h('td', { className: 'p-3 font-bold text-[#C5A059] block md:table-cell' }, formatCost(sStats.cost)),
-                                                        h('td', { className: 'p-3 text-white/40 text-xs block md:table-cell' }, formatDate(session.date)),
-                                                        h('td', { className: 'p-3 block md:table-cell' }, h('span', { className: 'text-[#C5A059] text-xs hover:underline cursor-pointer' }, 'عرض التفاصيل →'))
-                                                    );
-                                                })
-                                            )
-                                        )
-                                    )
+                                    : (function () {
+                                        var now = new Date();
+                                        var todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+                                        var yesterdayStart = todayStart - 86400000;
+                                        var last7Start = todayStart - 7 * 86400000;
+                                        var timeGroups = [
+                                            { label: 'اليوم', items: chatSessions.filter(function (s) { return s.date >= todayStart; }) },
+                                            { label: 'أمس', items: chatSessions.filter(function (s) { return s.date >= yesterdayStart && s.date < todayStart; }) },
+                                            { label: 'آخر 7 أيام', items: chatSessions.filter(function (s) { return s.date >= last7Start && s.date < yesterdayStart; }) },
+                                            { label: 'أقدم', items: chatSessions.filter(function (s) { return s.date < last7Start; }) },
+                                        ].filter(function (g) { return g.items.length > 0; });
+                                        return h('div', null,
+                                            timeGroups.map(function (group) {
+                                                return h('div', { key: group.label },
+                                                    h('div', { className: 'px-5 py-3 border-b border-white/5', style: { background: 'rgba(197, 160, 89, 0.05)' } },
+                                                        h('h4', { className: 'text-xs font-bold flex items-center gap-2', style: { color: '#C5A059' } }, '📅 ', group.label, ' (', group.items.length, ')')
+                                                    ),
+                                                    h('div', { className: 'overflow-x-auto' },
+                                                        h('table', { className: 'w-full text-sm' },
+                                                            h('thead', null,
+                                                                h('tr', { className: 'text-white/40 text-xs' },
+                                                                    h('th', { className: 'text-right p-3 font-medium' }, 'العنوان'),
+                                                                    h('th', { className: 'text-right p-3 font-medium' }, 'الوضع'),
+                                                                    h('th', { className: 'text-right p-3 font-medium' }, 'الرسائل'),
+                                                                    h('th', { className: 'text-right p-3 font-medium' }, 'توكنات'),
+                                                                    h('th', { className: 'text-right p-3 font-medium' }, 'التكلفة'),
+                                                                    h('th', { className: 'text-right p-3 font-medium' }, 'تاريخ الجلسة'),
+                                                                    h('th', { className: 'text-right p-3 font-medium' }, '')
+                                                                )
+                                                            ),
+                                                            h('tbody', null,
+                                                                group.items.map(function (session) {
+                                                                    var sStats = getSessionStats(session.id);
+                                                                    return h('tr', { key: session.id, className: 'table-row cursor-pointer flex-col md:table-row', onClick: function () { setSelectedUserId(session.id); } },
+                                                                        h('td', { className: 'p-3 font-bold text-white/80 max-w-[200px] truncate block md:table-cell' }, session.title),
+                                                                        h('td', { className: 'p-3' }, h('span', { className: 'badge', style: { background: 'rgba(168,85,247,0.15)', color: '#c084fc', border: '1px solid rgba(168,85,247,0.3)' } }, session.mode === 'MODE_LITERAL' ? 'حرفي' : 'فهم')),
+                                                                        h('td', { className: 'p-3 text-blue-400 font-bold block md:table-cell' }, session.messages ? session.messages.length : 0),
+                                                                        h('td', { className: 'p-3 text-green-400 block md:table-cell' }, formatNumber(sStats.input + sStats.output)),
+                                                                        h('td', { className: 'p-3 font-bold text-[#C5A059] block md:table-cell' }, formatCost(sStats.cost)),
+                                                                        h('td', { className: 'p-3 text-white/40 text-xs block md:table-cell' }, formatDate(session.date)),
+                                                                        h('td', { className: 'p-3 block md:table-cell' }, h('span', { className: 'text-[#C5A059] text-xs hover:underline cursor-pointer' }, 'عرض التفاصيل →'))
+                                                                    );
+                                                                })
+                                                            )
+                                                        )
+                                                    )
+                                                );
+                                            })
+                                        );
+                                    })()
                             )
                         )
                         // Selected session detail
