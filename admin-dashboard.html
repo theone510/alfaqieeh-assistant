@@ -270,6 +270,7 @@
         const { useState, useEffect, useMemo } = React;
 
         const MODEL_PRICING = {
+            'gemini-3.1-flash-lite-preview': { input: 0.25, output: 1.50, label: 'Gemini 3.1 Flash Lite Preview' },
             'gemini-3.0-flash': { input: 0.50, output: 3.00, label: 'Gemini 3.0 Flash' },
             'gemini-2.5-flash': { input: 0.30, output: 2.50, label: 'Gemini 2.5 Flash' },
             'gemini-2.5-pro': { input: 1.25, output: 10.00, label: 'Gemini 2.5 Pro' },
@@ -296,7 +297,7 @@
         const formatCost = (cost) => '$' + cost.toFixed(4);
         const formatDate = (ts) => new Date(ts).toLocaleDateString('ar-IQ', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
         const calcCost = (inputTokens, outputTokens, model) => {
-            const pricing = MODEL_PRICING[model] || MODEL_PRICING['gemini-2.5-flash'];
+            const pricing = MODEL_PRICING[model] || MODEL_PRICING['gemini-3.1-flash-lite-preview'];
             return (inputTokens / 1000000) * pricing.input + (outputTokens / 1000000) * pricing.output;
         };
 
@@ -372,7 +373,7 @@
                 var cacheLogs = logs.filter(function (l) { return l.type === 'cache_hit'; });
                 var inputSaved = cacheLogs.reduce(function (s, l) { return s + (l.inputTokensSaved || 0); }, 0);
                 var outputSaved = cacheLogs.reduce(function (s, l) { return s + (l.outputTokensSaved || 0); }, 0);
-                var costSaved = calcCost(inputSaved, outputSaved, 'gemini-2.5-flash');
+                var costSaved = calcCost(inputSaved, outputSaved, 'gemini-3.1-flash-lite-preview');
                 return { totalCached: totalCached, totalHits: totalHits, inputSaved: inputSaved, outputSaved: outputSaved, costSaved: costSaved };
             }, [cacheData, logs]);
 
@@ -695,13 +696,13 @@
                         h('div', { className: 'grid grid-cols-1 md:grid-cols-2 gap-4' },
                             Object.entries(MODEL_PRICING).map(function (pair) {
                                 var key = pair[0], model = pair[1];
-                                var isHighlighted = key === 'gemini-2.5-flash';
+                                var isHighlighted = key === 'gemini-3.1-flash-lite-preview';
                                 var isActiveLiteral = false;
                                 var isActiveUnderstanding = false;
                                 return h('div', { key: key, className: 'rounded-xl p-5 transition-all ' + (isHighlighted ? 'cost-highlight' : 'stat-card') },
                                     h('div', { className: 'flex items-center justify-between mb-4' },
                                         h('h4', { className: 'text-base font-bold ' + (isHighlighted ? 'text-[#C5A059]' : 'text-white/80') }, model.label),
-                                        key === 'gemini-2.5-flash' && h('span', { className: 'badge', style: { background: 'rgba(197, 160, 89, 0.15)', color: '#C5A059', border: '1px solid rgba(197, 160, 89, 0.3)' } }, '● الموديل النشط')
+                                        key === 'gemini-3.1-flash-lite-preview' && h('span', { className: 'badge', style: { background: 'rgba(197, 160, 89, 0.15)', color: '#C5A059', border: '1px solid rgba(197, 160, 89, 0.3)' } }, '● الموديل النشط')
                                     ),
                                     h('div', { className: 'grid grid-cols-2 gap-4' },
                                         h('div', null, h('p', { className: 'text-white/40 text-xs mb-1' }, 'تكلفة الإدخال'), h('p', { className: 'text-xl font-bold text-blue-400' }, '$' + model.input), h('p', { className: 'text-white/30 text-xs mt-0.5' }, '/ مليون توكن')),
