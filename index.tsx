@@ -840,7 +840,7 @@ const App = () => {
 
     const handleInstallClick = async () => {
         if (!deferredPrompt) return;
-        
+
         try {
             deferredPrompt.prompt();
             const { outcome } = await deferredPrompt.userChoice;
@@ -1236,7 +1236,7 @@ ${t('welcomeAsk')}`
                 <div className="absolute inset-0 pointer-events-none bg-pattern z-0 opacity-10" />
 
                 {/* Fix Mobile Layout: Separate Selectors to opposite sides */}
-                
+
                 {/* Dark Mode Toggle - Top Edge (End side based on RTL) */}
                 <div className={`absolute top-4 ${isRTL ? 'left-4' : 'right-4'} z-20 backdrop-blur-md p-1 rounded-xl border ${darkMode ? 'bg-[#1a2520]/80 border-teal-800' : 'bg-white/50 border-teal-100'} shadow-sm`}>
                     <button
