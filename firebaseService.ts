@@ -250,6 +250,29 @@ export const clearCache = async (): Promise<void> => {
     }
 };
 
+export const deleteCacheEntry = async (key: string): Promise<void> => {
+    try {
+        const safeKey = encodeURIComponent(key);
+        await deleteDoc(doc(db, 'answerCache', safeKey));
+    } catch (e) {
+        console.error('Firebase: deleteCacheEntry error', e);
+    }
+};
+
+export const updateCacheEntry = async (key: string, updatedData: Partial<CacheEntry>): Promise<void> => {
+    try {
+        const safeKey = encodeURIComponent(key);
+        const docRef = doc(db, 'answerCache', safeKey);
+        const snap = await getDoc(docRef);
+        if (snap.exists()) {
+            const data = snap.data() as CacheEntry;
+            await setDoc(docRef, { ...data, ...updatedData });
+        }
+    } catch (e) {
+        console.error('Firebase: updateCacheEntry error', e);
+    }
+};
+
 // ========================
 // RESET (for admin dashboard)
 // ========================

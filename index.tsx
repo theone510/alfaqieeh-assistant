@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { BookOpen, MessageCircle, Info, Send, Eraser, User, Bot, AlertCircle, Settings, FileText, Scroll, ArrowRight, CheckCircle2, History, Plus, Trash2, MessageSquare, Mic, StopCircle, Download, Menu, X, Globe, Copy, ThumbsUp, ThumbsDown, LogOut, Phone, Lock, Briefcase, UserPlus, LogIn } from 'lucide-react';
+import { BookOpen, MessageCircle, Info, Send, Eraser, User, Bot, AlertCircle, Settings, FileText, Scroll, ArrowRight, CheckCircle2, History, Plus, Trash2, MessageSquare, Mic, StopCircle, Download, Menu, X, Globe, Copy, ThumbsUp, ThumbsDown, LogOut, Phone, Lock, Briefcase, UserPlus, LogIn, Moon, Sun } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import {
     getSessions as getSessionsFromDb, saveSession as saveSessionToDb, deleteSessionFromDb,
@@ -320,10 +320,10 @@ const translations: Record<Language, Record<string, string>> = {
         appName: 'مساعد الفقيه',
         appDescription: 'نظام ذكي للمساعدة في استرداد وفهم الفتاوى الشرعية وفقاً لمنهج سماحة السيد السيستاني (دام ظلّه).',
         selectMode: 'يرجى اختيار نمط الإجابة للبدء:',
-        literalMode: 'الوضع الحرفي',
+        literalMode: 'الاجابة الحرفية',
         literalModeDesc: 'يقوم باستخراج نصوص الفتاوى حرفياً من المصادر المعتمدة دون أي زيادة أو شرح. مناسب للبحث عن نص فتوى محدد.',
         literalModeTag: 'بحث دقيق',
-        understandingMode: 'وضع الفهم المستنبط',
+        understandingMode: 'الاجابة حسب الفهم',
         understandingModeDesc: 'يقدم شرحاً وتوضيحاً للمسألة بالاعتماد على القواعد العامة والنصوص المشابهة. مناسب للمسائل المعقدة التي تحتاج تفصيلاً.',
         understandingModeTag: 'تحليل وتوضيح',
         startNow: 'ابدأ الآن',
@@ -679,18 +679,18 @@ const languageNames: Record<Language, string> = {
 
 const rtlLanguages: Language[] = ['ar', 'fa', 'ur'];
 
-// Colors Constant
-const COLORS = {
-    primary: 'bg-gradient-to-br from-[#004D40] to-[#00695C]', // Deep Shrine Teal Gradient
+// Colors Constant - Dynamic based on dark mode
+const getColors = (dark: boolean) => ({
+    primary: 'bg-gradient-to-br from-[#004D40] to-[#00695C]',
     primaryHover: 'hover:from-[#00695C] hover:to-[#00796B]',
-    primaryLight: 'bg-gradient-to-br from-[#E0F2F1] to-[#B2DFDB]',
-    accent: 'bg-gradient-to-r from-[#C5A059] to-[#D4AF37]', // Shrine Gold Gradient
+    primaryLight: dark ? 'bg-gradient-to-br from-[#004D40]/30 to-[#00695C]/30' : 'bg-gradient-to-br from-[#E0F2F1] to-[#B2DFDB]',
+    accent: 'bg-gradient-to-r from-[#C5A059] to-[#D4AF37]',
     accentText: 'text-[#C5A059]',
     accentBorder: 'border-[#C5A059]',
     accentHover: 'hover:from-[#B08D55] hover:to-[#C5A059]',
-    bgLight: 'bg-[#FDFBF7]', // Cream
-    textDark: 'text-[#004D40]',
-};
+    bgLight: dark ? 'bg-[#002b26]' : 'bg-[#FDFBF7]',
+    textDark: dark ? 'text-[#e0d5c1]' : 'text-[#004D40]',
+});
 
 const App = () => {
     // State
@@ -702,10 +702,21 @@ const App = () => {
     const [loadingStep, setLoadingStep] = useState(0);
     const [mode, setMode] = useState<Mode>('MODE_LITERAL');
     const [hasStarted, setHasStarted] = useState(false);
-    const [apiKey, setApiKey] = useState(import.meta.env.VITE_GEMINI_API_KEY || '');
+    const [apiKey, setApiKey] = useState((import.meta as any).env.VITE_GEMINI_API_KEY || '');
     const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [language, setLanguage] = useState<Language>('ar');
+    const [darkMode, setDarkMode] = useState(() => {
+        try { return localStorage.getItem('faqih_dark_mode') === 'true'; } catch { return false; }
+    });
+
+    // Persist dark mode and update body class
+    useEffect(() => {
+        localStorage.setItem('faqih_dark_mode', String(darkMode));
+        document.documentElement.classList.toggle('dark', darkMode);
+    }, [darkMode]);
+
+    const COLORS = getColors(darkMode);
 
     // Get translation helper
     const t = (key: string) => translations[language][key] || key;
@@ -766,6 +777,8 @@ const App = () => {
                 mode,
                 feedback: type,
                 timestamp: Date.now(), // Use current timestamp
+                userId: '',
+                userName: ''
             };
             await saveFeedback(entry);
             setFeedbackMap(prev => ({ ...prev, [key]: type }));
@@ -827,9 +840,15 @@ const App = () => {
 
     const handleInstallClick = async () => {
         if (!deferredPrompt) return;
-        deferredPrompt.prompt();
-        const { outcome } = await deferredPrompt.userChoice;
-        if (outcome === 'accepted') {
+        
+        try {
+            deferredPrompt.prompt();
+            const { outcome } = await deferredPrompt.userChoice;
+            console.log(`User prompt choice: ${outcome}`);
+        } catch (e) {
+            console.error("Install prompt error:", e);
+        } finally {
+            // The prompt() can only be called once on the saved event.
             setDeferredPrompt(null);
         }
     };
@@ -1190,11 +1209,11 @@ ${t('welcomeAsk')}`
         }
     };
 
-    const goToHome = () => {
+    const goToNewChat = () => {
         setHasStarted(false);
         setMessages([]);
         setCurrentSessionId(null);
-        setIsSidebarOpen(false); // Close sidebar on mobile
+        setIsSidebarOpen(false);
     };
 
     // Auto Send Effect
@@ -1212,24 +1231,36 @@ ${t('welcomeAsk')}`
     // --- Intro Screen Component ---
     if (!hasStarted) {
         return (
-            <div dir={isRTL ? 'rtl' : 'ltr'} className={`flex min-h-screen ${COLORS.bgLight} font-sans relative overflow-hidden flex-col items-center justify-center p-4 ${language === 'ur' ? 'urdu-text' : ''} ${language === 'fa' ? 'persian-text' : ''}`}>
+            <div dir={isRTL ? 'rtl' : 'ltr'} className={`flex min-h-screen ${COLORS.bgLight} font-sans relative overflow-hidden flex-col items-center justify-center p-4 ${language === 'ur' ? 'urdu-text' : ''} ${language === 'fa' ? 'persian-text' : ''} transition-colors duration-300`}>
                 {/* Background Pattern */}
                 <div className="absolute inset-0 pointer-events-none bg-pattern z-0 opacity-10" />
 
-                {/* Language Selector - Top Right */}
-                <div className="absolute top-4 right-4 z-20 flex items-center gap-2 bg-white/50 backdrop-blur-md p-1.5 rounded-xl border border-teal-100 shadow-sm">
-                    <span className="text-sm font-semibold text-teal-800 px-2 hidden md:block">{t('language')}:</span>
+                {/* Fix Mobile Layout: Separate Selectors to opposite sides */}
+                
+                {/* Dark Mode Toggle - Top Edge (End side based on RTL) */}
+                <div className={`absolute top-4 ${isRTL ? 'left-4' : 'right-4'} z-20 backdrop-blur-md p-1 rounded-xl border ${darkMode ? 'bg-[#1a2520]/80 border-teal-800' : 'bg-white/50 border-teal-100'} shadow-sm`}>
+                    <button
+                        onClick={() => setDarkMode(!darkMode)}
+                        className={`p-2 rounded-lg transition-all duration-300 ${darkMode ? 'bg-[#C5A059]/20 text-[#C5A059] hover:bg-[#C5A059]/30' : 'bg-teal-100 text-teal-700 hover:bg-teal-200'}`}
+                        title={darkMode ? 'Light Mode' : 'Dark Mode'}
+                    >
+                        {darkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+                    </button>
+                </div>
+
+                {/* Language Selector - Top Edge (Start side based on RTL) */}
+                <div className={`absolute top-4 ${isRTL ? 'right-4' : 'left-4'} z-20 flex items-center gap-2 ${darkMode ? 'bg-[#1a2520]/80' : 'bg-white/50'} backdrop-blur-md p-1 rounded-xl border ${darkMode ? 'border-teal-800' : 'border-teal-100'} shadow-sm`}>
                     <div className="relative">
                         <select
                             value={language}
                             onChange={(e) => setLanguage(e.target.value as Language)}
-                            className={`appearance-none bg-white text-teal-800 px-4 py-2 pr-10 rounded-lg cursor-pointer text-sm font-medium shadow-sm border border-teal-200 focus:outline-none focus:ring-2 focus:ring-[#C5A059]`}
+                            className={`appearance-none ${darkMode ? 'bg-[#1a2e2a] text-[#e0d5c1] border-[#2a3a35]' : 'bg-white text-teal-800 border-teal-200'} pl-4 pr-10 py-2 rounded-lg cursor-pointer text-sm font-medium shadow-sm border focus:outline-none focus:ring-2 focus:ring-[#C5A059] min-w-[70px] outline-none`}
                         >
                             {(Object.keys(languageNames) as Language[]).map(lang => (
                                 <option key={lang} value={lang}>{languageNames[lang]}</option>
                             ))}
                         </select>
-                        <Globe className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-teal-500 pointer-events-none" />
+                        <Globe className={`absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 ${darkMode ? 'text-[#C5A059]' : 'text-teal-500'} pointer-events-none`} />
                     </div>
                 </div>
 
@@ -1242,7 +1273,7 @@ ${t('welcomeAsk')}`
                         <h1 className={`text-4xl md:text-5xl font-bold ${COLORS.textDark} mb-4 font-serif`}>
                             {t('appName')}
                         </h1>
-                        <p className="text-slate-500 mt-4 max-w-lg mx-auto leading-relaxed text-center">
+                        <p className={`${darkMode ? 'text-gray-400' : 'text-slate-500'} mt-4 max-w-lg mx-auto leading-relaxed text-center`}>
                             {t('appDescription')}
                             <br />
                             <span className="text-sm font-bold mt-2 block text-center">{t('selectMode')}</span>
@@ -1252,47 +1283,47 @@ ${t('welcomeAsk')}`
                     {/* Mode Selection Cards */}
                     <div className="grid md:grid-cols-2 gap-6 max-w-3xl mx-auto mb-12">
 
-                        {/* Literal Mode Card */}
+                        {/* Understanding Mode Card */}
                         <button
-                            onClick={() => handleStart('MODE_LITERAL')}
-                            className={`group relative bg-white border-2 border-slate-200 hover:border-[#C5A059] rounded-2xl p-8 ${isRTL ? 'text-right' : 'text-left'} shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col items-start gap-4`}
+                            onClick={() => handleStart('MODE_UNDERSTANDING')}
+                            className={`group relative ${darkMode ? 'bg-[#003d35] border-[#0c4d44] hover:border-[#C5A059]' : 'bg-white border-slate-200 hover:border-[#C5A059]'} border-2 rounded-2xl p-8 ${isRTL ? 'text-right' : 'text-left'} shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col items-start gap-4`}
                         >
                             <div className={`p-3 rounded-xl ${COLORS.primaryLight} group-hover:bg-[#004D40] transition-colors`}>
-                                <FileText className={`w-8 h-8 text-[#004D40] group-hover:text-white transition-colors`} />
+                                <BookOpen className={`w-8 h-8 ${darkMode ? 'text-teal-300' : 'text-[#004D40]'} group-hover:text-white transition-colors`} />
                             </div>
                             <div>
                                 <h3 className={`text-xl font-bold ${COLORS.textDark} mb-2 group-hover:text-[#C5A059] transition-colors`}>
-                                    {t('literalMode')}
-                                    <span className={`text-xs font-normal text-slate-400 ${isRTL ? 'mr-2' : 'ml-2'} bg-slate-100 px-2 py-0.5 rounded-full`}>{t('literalModeTag')}</span>
+                                    {t('understandingMode')}
+                                    <span className={`text-xs font-normal ${darkMode ? 'text-teal-300 bg-[#004D40]' : 'text-slate-400 bg-slate-100'} ${isRTL ? 'mr-2' : 'ml-2'} px-2 py-0.5 rounded-full`}>{t('understandingModeTag')}</span>
                                 </h3>
-                                <p className={`text-slate-600 text-sm leading-relaxed ${isRTL ? 'text-justify' : 'text-left'}`}>
-                                    {t('literalModeDesc')}
+                                <p className={`${darkMode ? 'text-teal-100/70' : 'text-slate-600'} text-sm leading-relaxed ${isRTL ? 'text-justify' : 'text-left'}`}>
+                                    {t('understandingModeDesc')}
                                 </p>
                             </div>
-                            <div className="mt-auto w-full pt-4 border-t border-slate-100 flex justify-between items-center text-[#C5A059] font-bold text-sm opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div className={`mt-auto w-full pt-4 border-t ${darkMode ? 'border-[#0c4d44]' : 'border-slate-100'} flex justify-between items-center text-[#C5A059] font-bold text-sm opacity-0 group-hover:opacity-100 transition-opacity`}>
                                 <span>{t('startNow')}</span>
                                 <ArrowRight className={`w-4 h-4 ${isRTL ? 'mr-1 rotate-180' : 'ml-1'}`} />
                             </div>
                         </button>
 
-                        {/* Understanding Mode Card */}
+                        {/* Literal Mode Card */}
                         <button
-                            onClick={() => handleStart('MODE_UNDERSTANDING')}
-                            className={`group relative bg-white border-2 border-slate-200 hover:border-[#C5A059] rounded-2xl p-8 ${isRTL ? 'text-right' : 'text-left'} shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col items-start gap-4`}
+                            onClick={() => handleStart('MODE_LITERAL')}
+                            className={`group relative ${darkMode ? 'bg-[#003d35] border-[#0c4d44] hover:border-[#C5A059]' : 'bg-white border-slate-200 hover:border-[#C5A059]'} border-2 rounded-2xl p-8 ${isRTL ? 'text-right' : 'text-left'} shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col items-start gap-4`}
                         >
                             <div className={`p-3 rounded-xl ${COLORS.primaryLight} group-hover:bg-[#004D40] transition-colors`}>
-                                <BookOpen className={`w-8 h-8 text-[#004D40] group-hover:text-white transition-colors`} />
+                                <FileText className={`w-8 h-8 ${darkMode ? 'text-teal-300' : 'text-[#004D40]'} group-hover:text-white transition-colors`} />
                             </div>
                             <div>
                                 <h3 className={`text-xl font-bold ${COLORS.textDark} mb-2 group-hover:text-[#C5A059] transition-colors`}>
-                                    {t('understandingMode')}
-                                    <span className={`text-xs font-normal text-slate-400 ${isRTL ? 'mr-2' : 'ml-2'} bg-slate-100 px-2 py-0.5 rounded-full`}>{t('understandingModeTag')}</span>
+                                    {t('literalMode')}
+                                    <span className={`text-xs font-normal ${darkMode ? 'text-teal-300 bg-[#004D40]' : 'text-slate-400 bg-slate-100'} ${isRTL ? 'mr-2' : 'ml-2'} px-2 py-0.5 rounded-full`}>{t('literalModeTag')}</span>
                                 </h3>
-                                <p className={`text-slate-600 text-sm leading-relaxed ${isRTL ? 'text-justify' : 'text-left'}`}>
-                                    {t('understandingModeDesc')}
+                                <p className={`${darkMode ? 'text-teal-100/70' : 'text-slate-600'} text-sm leading-relaxed ${isRTL ? 'text-justify' : 'text-left'}`}>
+                                    {t('literalModeDesc')}
                                 </p>
                             </div>
-                            <div className="mt-auto w-full pt-4 border-t border-slate-100 flex justify-between items-center text-[#C5A059] font-bold text-sm opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div className={`mt-auto w-full pt-4 border-t ${darkMode ? 'border-[#0c4d44]' : 'border-slate-100'} flex justify-between items-center text-[#C5A059] font-bold text-sm opacity-0 group-hover:opacity-100 transition-opacity`}>
                                 <span>{t('startNow')}</span>
                                 <ArrowRight className={`w-4 h-4 ${isRTL ? 'mr-1 rotate-180' : 'ml-1'}`} />
                             </div>
@@ -1355,7 +1386,7 @@ ${t('welcomeAsk')}`
 
     // --- Main App Interface ---
     return (
-        <div dir={isRTL ? 'rtl' : 'ltr'} className={`flex h-screen ${COLORS.bgLight} text-slate-800 font-sans overflow-hidden ${language === 'ur' ? 'urdu-text' : ''} ${language === 'fa' ? 'persian-text' : ''}`}>
+        <div dir={isRTL ? 'rtl' : 'ltr'} className={`flex h-screen ${COLORS.bgLight} ${darkMode ? 'text-gray-200' : 'text-slate-800'} font-sans overflow-hidden ${language === 'ur' ? 'urdu-text' : ''} ${language === 'fa' ? 'persian-text' : ''} transition-colors duration-300`}>
 
             {/* Background Pattern */}
             <div className="absolute inset-0 pointer-events-none bg-pattern z-0" />
@@ -1369,10 +1400,10 @@ ${t('welcomeAsk')}`
             )}
 
             {/* Sidebar / Settings Panel */}
-            <aside className={`fixed inset-y-0 ${isRTL ? 'right-0' : 'left-0'} z-50 w-80 ${COLORS.primary} text-white flex flex-col shadow-xl transition-transform duration-300 ease-in-out md:relative md:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : (isRTL ? 'translate-x-full' : '-translate-x-full')}`}>
-                <div className="p-6 border-b border-teal-800 flex items-center justify-between gap-3">
+            <aside className={`fixed inset-y-0 ${isRTL ? 'right-0' : 'left-0'} z-50 w-80 ${darkMode ? 'bg-[#003d35]/95 backdrop-blur-xl border-[#0c4d44]' : COLORS.primary} text-white flex flex-col shadow-xl transition-all duration-300 ease-in-out md:relative md:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : (isRTL ? 'translate-x-full' : '-translate-x-full')}`}>
+                <div className={`p-6 border-b ${darkMode ? 'border-[#0c4d44]' : 'border-teal-800'} flex items-center justify-between gap-3`}>
                     <div className="flex items-center gap-3">
-                        <div className="p-2 bg-white/10 rounded-lg cursor-pointer hover:bg-white/20 transition-colors" onClick={goToHome}>
+                        <div className={`p-2 ${darkMode ? 'bg-white/10' : 'bg-white/10'} rounded-lg cursor-pointer hover:bg-white/20 transition-colors`} onClick={goToNewChat}>
                             <Scroll className={`w-8 h-8 ${COLORS.accentText}`} />
                         </div>
                         <div>
@@ -1388,7 +1419,7 @@ ${t('welcomeAsk')}`
                 {/* New Chat Button */}
                 <div className="p-4 pb-2">
                     <button
-                        onClick={() => goToHome()}
+                        onClick={goToNewChat}
                         className={`w-full flex items-center gap-2 bg-[#C5A059] hover:bg-[#B08D55] text-white py-3 px-4 rounded-xl font-bold shadow-lg transition-all transform hover:scale-[1.02]`}
                     >
                         <Plus className="w-5 h-5" />
@@ -1397,6 +1428,80 @@ ${t('welcomeAsk')}`
                 </div>
 
                 <div className="flex-1 overflow-y-auto px-4 py-2 custom-scrollbar">
+
+                    {/* Settings Section */}
+                    <div className="mb-6 pb-4 border-b border-teal-800/50">
+                        <h3 className={`text-xs font-semibold text-teal-300 uppercase tracking-wider mb-3 flex items-center gap-2 px-2`}>
+                            <Settings className="w-3 h-3" />
+                            {t('settings')}
+                        </h3>
+
+
+                        <div className="space-y-2">
+                            <label className={`group block p-3 rounded-lg border transition-all cursor-pointer relative overflow-hidden ${mode === 'MODE_UNDERSTANDING' ? `border-[#C5A059] bg-[#00695C]` : 'border-teal-800 hover:bg-[#005a4e]'}`}>
+                                <input
+                                    type="radio"
+                                    name="mode"
+                                    value="MODE_UNDERSTANDING"
+                                    checked={mode === 'MODE_UNDERSTANDING'}
+                                    onChange={() => setMode('MODE_UNDERSTANDING')}
+                                    className="hidden"
+                                />
+                                <div className={`font-bold text-sm flex items-center justify-between ${mode === 'MODE_UNDERSTANDING' ? 'text-white' : 'text-teal-100'}`}>
+                                    <span className="flex items-center gap-2"><BookOpen className="w-3 h-3" /> {t('understandingMode')}</span>
+                                    {mode === 'MODE_UNDERSTANDING' && <CheckCircle2 className="w-3 h-3 text-[#C5A059]" />}
+                                </div>
+                            </label>
+
+                            <label className={`group block p-3 rounded-lg border transition-all cursor-pointer relative overflow-hidden ${mode === 'MODE_LITERAL' ? `border-[#C5A059] bg-[#00695C]` : 'border-teal-800 hover:bg-[#005a4e]'}`}>
+                                <input
+                                    type="radio"
+                                    name="mode"
+                                    value="MODE_LITERAL"
+                                    checked={mode === 'MODE_LITERAL'}
+                                    onChange={() => setMode('MODE_LITERAL')}
+                                    className="hidden"
+                                />
+                                <div className={`font-bold text-sm flex items-center justify-between ${mode === 'MODE_LITERAL' ? 'text-white' : 'text-teal-100'}`}>
+                                    <span className="flex items-center gap-2"><FileText className="w-3 h-3" /> {t('literalMode')}</span>
+                                    {mode === 'MODE_LITERAL' && <CheckCircle2 className="w-3 h-3 text-[#C5A059]" />}
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    {/* Language Selection */}
+                    <div className={`mb-6 pb-4 border-b ${darkMode ? 'border-[#0c4d44]' : 'border-teal-800/50'}`}>
+                        <h3 className={`text-xs font-semibold text-teal-300 uppercase tracking-wider mb-3 flex items-center gap-2 px-2`}>
+                            <Globe className="w-3 h-3" />
+                            {t('language')}
+                        </h3>
+                        <select
+                            value={language}
+                            onChange={(e) => setLanguage(e.target.value as Language)}
+                            className={`w-full ${darkMode ? 'bg-[#0c4d44]/50 border-[#1a5a51]' : 'bg-teal-800/50 border-teal-700'} text-white p-3 rounded-lg border focus:outline-none focus:ring-2 focus:ring-[#C5A059] cursor-pointer`}
+                        >
+                            {(Object.keys(languageNames) as Language[]).map(lang => (
+                                <option key={lang} value={lang}>{languageNames[lang]}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    {/* Dark Mode Toggle (Sidebar/Desktop) */}
+                    <div className="mb-6 pb-4 border-b border-teal-800/50">
+                        <button
+                            onClick={() => setDarkMode(!darkMode)}
+                            className={`w-full flex items-center justify-between p-3 rounded-lg border transition-all ${darkMode ? 'bg-[#0c4d44]/50 border-[#1a5a51] text-white hover:bg-[#1a5a51]' : 'bg-teal-800/50 border-teal-700 text-teal-100 hover:bg-teal-700'}`}
+                        >
+                            <div className="flex items-center gap-2">
+                                {darkMode ? <Moon className="w-4 h-4 text-[#C5A059]" /> : <Sun className="w-4 h-4 text-[#C5A059]" />}
+                                <span className="text-sm font-bold">{darkMode ? (language === 'ar' ? 'الوضع الليلي' : 'Dark Mode') : (language === 'ar' ? 'الوضع النهاري' : 'Light Mode')}</span>
+                            </div>
+                            <div className={`w-10 h-5 rounded-full relative transition-colors ${darkMode ? 'bg-[#C5A059]' : 'bg-teal-900'}`}>
+                                <div className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all ${isRTL ? (darkMode ? 'left-1' : 'right-1') : (darkMode ? 'right-1' : 'left-1')}`} />
+                            </div>
+                        </button>
+                    </div>
 
                     {/* Chat History Section - Grouped by Time */}
                     {sessions.length > 0 && (() => {
@@ -1451,77 +1556,22 @@ ${t('welcomeAsk')}`
                         ));
                     })()}
 
-                    {/* Language Selection */}
-                    <div className="mb-6 pt-4 border-t border-teal-800/50">
-                        <h3 className={`text-xs font-semibold text-teal-300 uppercase tracking-wider mb-3 flex items-center gap-2 px-2`}>
-                            <Globe className="w-3 h-3" />
-                            {t('language')}
-                        </h3>
-                        <select
-                            value={language}
-                            onChange={(e) => setLanguage(e.target.value as Language)}
-                            className="w-full bg-teal-800/50 text-white p-3 rounded-lg border border-teal-700 focus:outline-none focus:ring-2 focus:ring-[#C5A059] cursor-pointer"
-                        >
-                            {(Object.keys(languageNames) as Language[]).map(lang => (
-                                <option key={lang} value={lang}>{languageNames[lang]}</option>
-                            ))}
-                        </select>
-                    </div>
-
-                    {/* Settings Section */}
-                    <div className="mb-8 pt-4 border-t border-teal-800/50">
-                        <h3 className={`text-xs font-semibold text-teal-300 uppercase tracking-wider mb-3 flex items-center gap-2 px-2`}>
-                            <Settings className="w-3 h-3" />
-                            {t('settings')}
-                        </h3>
-
-                        {/* Install Button (Desktop) */}
-                        {deferredPrompt && (
+                    {/* Install Button (Desktop) - Moved to bottom */}
+                    {deferredPrompt && (
+                        <div className="mt-8 mb-4 border-t border-teal-800/50 pt-4">
                             <button
                                 onClick={handleInstallClick}
-                                className="w-full flex items-center gap-2 bg-teal-800/50 hover:bg-teal-700 text-teal-100 p-3 rounded-lg mb-4 border border-teal-700 transition-colors"
+                                className="w-full flex items-center justify-center gap-2 bg-[#C5A059]/20 hover:bg-[#C5A059]/30 text-[#C5A059] p-3 rounded-xl border border-[#C5A059]/40 transition-all shadow-sm"
                             >
-                                <Download className="w-4 h-4 text-[#C5A059]" />
-                                <span className="text-sm font-bold">{t('installApp')}</span>
+                                <Download className="w-5 h-5" />
+                                <span className="font-bold">{t('installApp')}</span>
                             </button>
-                        )}
-
-                        <div className="space-y-2">
-                            <label className={`group block p-3 rounded-lg border transition-all cursor-pointer relative overflow-hidden ${mode === 'MODE_LITERAL' ? `border-[#C5A059] bg-[#00695C]` : 'border-teal-800 hover:bg-[#005a4e]'}`}>
-                                <input
-                                    type="radio"
-                                    name="mode"
-                                    value="MODE_LITERAL"
-                                    checked={mode === 'MODE_LITERAL'}
-                                    onChange={() => setMode('MODE_LITERAL')}
-                                    className="hidden"
-                                />
-                                <div className={`font-bold text-sm flex items-center justify-between ${mode === 'MODE_LITERAL' ? 'text-white' : 'text-teal-100'}`}>
-                                    <span className="flex items-center gap-2"><FileText className="w-3 h-3" /> {t('literalMode')}</span>
-                                    {mode === 'MODE_LITERAL' && <CheckCircle2 className="w-3 h-3 text-[#C5A059]" />}
-                                </div>
-                            </label>
-
-                            <label className={`group block p-3 rounded-lg border transition-all cursor-pointer relative overflow-hidden ${mode === 'MODE_UNDERSTANDING' ? `border-[#C5A059] bg-[#00695C]` : 'border-teal-800 hover:bg-[#005a4e]'}`}>
-                                <input
-                                    type="radio"
-                                    name="mode"
-                                    value="MODE_UNDERSTANDING"
-                                    checked={mode === 'MODE_UNDERSTANDING'}
-                                    onChange={() => setMode('MODE_UNDERSTANDING')}
-                                    className="hidden"
-                                />
-                                <div className={`font-bold text-sm flex items-center justify-between ${mode === 'MODE_UNDERSTANDING' ? 'text-white' : 'text-teal-100'}`}>
-                                    <span className="flex items-center gap-2"><BookOpen className="w-3 h-3" /> {t('understandingMode')}</span>
-                                    {mode === 'MODE_UNDERSTANDING' && <CheckCircle2 className="w-3 h-3 text-[#C5A059]" />}
-                                </div>
-                            </label>
                         </div>
-                    </div>
+                    )}
                 </div>
 
-                <div className="p-4 bg-[#00352c] border-t border-teal-800">
-                    <div className="text-[10px] text-center text-teal-300 leading-relaxed px-2">
+                <div className={`p-4 ${darkMode ? 'bg-[#080d0b] border-[#1a2e2a]' : 'bg-[#00352c] border-teal-800'} border-t`}>
+                    <div className={`text-[10px] text-center ${darkMode ? 'text-gray-500' : 'text-teal-300'} leading-relaxed px-2`}>
                         {t('footer')}
                         <br />
                         {t('footer2')}
@@ -1533,12 +1583,12 @@ ${t('welcomeAsk')}`
             <main className="flex-1 flex flex-col h-full relative z-0">
 
                 {/* Mobile Header */}
-                <header className={`md:hidden ${COLORS.primary} text-white p-4 flex justify-between items-center shadow-md z-10 sticky top-0`}>
+                <header className={`md:hidden ${darkMode ? 'bg-[#003d35]/95 backdrop-blur-xl' : COLORS.primary} text-white p-4 flex justify-between items-center shadow-md z-10 sticky top-0 transition-colors duration-300`}>
                     <div className="flex items-center gap-2">
                         <button onClick={() => setIsSidebarOpen(true)} className={`p-2 ${isRTL ? '-mr-2' : '-ml-2'} text-teal-100 hover:text-white rounded-md hover:bg-white/10 transition-colors`}>
                             <Menu className="w-6 h-6" />
                         </button>
-                        <div className="flex items-center gap-2" onClick={goToHome}>
+                        <div className="flex items-center gap-2 cursor-pointer" onClick={goToNewChat}>
                             <Scroll className={`w-6 h-6 text-[#C5A059] ${isRTL ? 'ml-2' : 'mr-2'}`} />
                             <div>
                                 <h1 className="font-bold text-sm">{t('appName')}</h1>
@@ -1546,13 +1596,22 @@ ${t('welcomeAsk')}`
                         </div>
                     </div>
                     <div className="flex gap-2">
+                        {/* Dark Mode Toggle (Mobile/Desktop Header) */}
+                        <button
+                            onClick={() => setDarkMode(!darkMode)}
+                            className={`p-2 rounded-md border transition-all duration-300 flex items-center justify-center ${darkMode ? 'bg-[#C5A059]/20 border-[#C5A059]/30 text-[#C5A059] hover:bg-[#C5A059]/30' : 'bg-teal-800/50 border-teal-700 text-teal-100 hover:bg-teal-700'}`}
+                            title={darkMode ? 'Light Mode' : 'Dark Mode'}
+                        >
+                            {darkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+                        </button>
+
                         {/* Install Button (Mobile) */}
                         {deferredPrompt && (
-                            <button onClick={handleInstallClick} className="p-2 bg-teal-800 rounded-md text-white border border-teal-600">
+                            <button onClick={handleInstallClick} className={`p-2 rounded-md text-white border transition-colors ${darkMode ? 'bg-[#0c4d44] border-[#1a5a51] hover:bg-[#1a5a51]' : 'bg-teal-800 border-teal-600 hover:bg-teal-700'}`}>
                                 <Download className="w-4 h-4" />
                             </button>
                         )}
-                        <button onClick={goToHome} className="p-2 bg-[#C5A059] rounded-md text-white">
+                        <button onClick={goToNewChat} className="p-2 bg-[#C5A059] rounded-lg text-white hover:bg-[#B08D55] transition-all shadow-md flex items-center gap-2 px-3">
                             <Plus className="w-4 h-4" />
                         </button>
                     </div>
@@ -1574,15 +1633,15 @@ ${t('welcomeAsk')}`
                             {/* Bubble */}
                             <div className={`max-w-[85%] sm:max-w-[90%] md:max-w-[75%] rounded-2xl px-3 sm:px-5 md:px-6 py-3 sm:py-4 shadow-sm ${msg.role === 'user'
                                 ? `bg-[#004D40] text-white ${isRTL ? 'rounded-tr-none' : 'rounded-tl-none'}`
-                                : `bg-white ${isRTL ? 'border-r-4' : 'border-l-4'} border-[#C5A059] text-slate-800 ${isRTL ? 'rounded-tl-none' : 'rounded-tr-none'}`
+                                : `${darkMode ? 'bg-[#1a2520] border-[#2a3a35]' : 'bg-white'} ${isRTL ? 'border-r-4' : 'border-l-4'} border-[#C5A059] ${darkMode ? 'text-gray-200' : 'text-slate-800'} ${isRTL ? 'rounded-tl-none' : 'rounded-tr-none'}`
                                 }`}>
                                 <div className={`markdown-body text-sm sm:text-base leading-relaxed sm:leading-loose ${isRTL ? 'text-right' : 'text-left'} ${msg.role === 'user' ? 'text-white' : ''}`}>
                                     <ReactMarkdown>{msg.text}</ReactMarkdown>
                                 </div>
                                 {/* Feedback Buttons for AI messages */}
                                 {msg.role === 'model' && idx > 0 && (
-                                    <div className={`flex items-center gap-1 mt-3 pt-2 border-t border-slate-100 ${isRTL ? 'justify-start' : 'justify-start'}`}>
-                                        <button onClick={() => handleCopy(msg.text, idx)} className={`p-1.5 rounded-lg text-xs flex items-center gap-1 transition-all ${copiedIdx === idx ? 'bg-green-100 text-green-600' : 'text-slate-400 hover:text-[#004D40] hover:bg-slate-100'}`} title={t('copy')}>
+                                    <div className={`flex items-center gap-1 mt-3 pt-2 border-t ${darkMode ? 'border-[#2a3a35]' : 'border-slate-100'} ${isRTL ? 'justify-start' : 'justify-start'}`}>
+                                        <button onClick={() => handleCopy(msg.text, idx)} className={`p-1.5 rounded-lg text-xs flex items-center gap-1 transition-all ${copiedIdx === idx ? 'bg-green-100 text-green-600' : `${darkMode ? 'text-gray-400 hover:text-[#C5A059] hover:bg-[#1a2e2a]' : 'text-slate-400 hover:text-[#004D40] hover:bg-slate-100'}`}`} title={t('copy')}>
                                             {copiedIdx === idx ? <><CheckCircle2 className="w-3.5 h-3.5" /> {t('copied')}</> : <><Copy className="w-3.5 h-3.5" /> {t('copy')}</>}
                                         </button>
                                         {(() => {
@@ -1629,29 +1688,29 @@ ${t('welcomeAsk')}`
                 </div>
 
                 {/* Input Area */}
-                <div className="bg-white p-4 md:p-6 border-t border-slate-200 shadow-[0_-4px_10px_-1px_rgba(0,0,0,0.05)] relative z-10">
+                <div className={`${darkMode ? 'bg-[#003d35]/95 backdrop-blur-md border-[#0c4d44]' : 'bg-[#004D40] border-teal-800'} p-3 md:p-6 border-t shadow-[0_-4px_10px_-1px_rgba(0,0,0,0.05)] relative z-10 transition-colors duration-300`}>
                     <div className="max-w-4xl mx-auto relative">
                         <div className={`absolute top-0 ${isRTL ? 'right-0' : 'left-0'} -mt-10 mb-2 flex ${isRTL ? 'justify-end' : 'justify-start'} w-full px-2 pointer-events-none`}>
-                            <span className={`bg-[#004D40] text-[#C5A059] text-xs px-3 py-1 ${isRTL ? 'rounded-t-lg' : 'rounded-t-lg'} opacity-0 md:opacity-100 transition-opacity shadow-sm border-t border-x border-[#00695C]`}>
+                            <span className={`bg-[#004D40] text-[#C5A059] text-[10px] md:text-xs px-3 py-1 ${isRTL ? 'rounded-t-lg' : 'rounded-t-lg'} opacity-80 md:opacity-100 transition-opacity shadow-sm border-t border-x border-[#00695C]`}>
                                 {mode === 'MODE_LITERAL' ? t('modeLiteral') : t('modeUnderstanding')}
                             </span>
                         </div>
 
-                        <div className="relative flex items-end gap-2 bg-[#f8fafc]/80 backdrop-blur-md border border-slate-300 rounded-xl p-2 focus-within:ring-2 focus-within:ring-[#004D40] focus-within:border-[#004D40] transition-all shadow-inner">
+                        <div className={`relative flex items-end gap-2 ${darkMode ? 'bg-white/5 border-white/10' : 'bg-white/10 border-white/20'} backdrop-blur-md border rounded-xl p-1.5 md:p-2 focus-within:ring-2 focus-within:ring-[#C5A059] focus-within:border-[#C5A059] transition-all shadow-inner`}>
                             <textarea
                                 value={input}
                                 onChange={(e) => setInput(e.target.value)}
                                 onKeyDown={handleKeyDown}
                                 placeholder={t('placeholder')}
-                                className={`w-full bg-transparent border-none focus:ring-0 resize-none max-h-32 min-h-[50px] py-3 px-2 text-slate-800 placeholder-slate-400 font-medium text-sm sm:text-base ${isRTL ? 'text-right' : 'text-left'} scrollbar-hide`}
+                                className={`w-full bg-transparent border-none focus:ring-0 resize-none max-h-32 min-h-[44px] md:min-h-[50px] py-2 md:py-3 px-2 text-white placeholder-teal-100/50 font-medium text-sm sm:text-base ${isRTL ? 'text-right' : 'text-left'} scrollbar-hide`}
                                 rows={1}
-                                style={{ height: 'auto', minHeight: '50px' }}
+                                style={{ height: 'auto', minHeight: '44px' }}
                             />
                             <button
                                 onClick={toggleRecording}
-                                className={`mb-1 p-3 rounded-lg transition-all shadow-md flex items-center justify-center border ${isRecording
+                                className={`mb-1 p-2 md:p-3 rounded-lg transition-all shadow-md flex items-center justify-center border ${isRecording
                                     ? 'bg-red-500 hover:bg-red-600 text-white animate-pulse border-red-400 glow-red'
-                                    : 'bg-white text-slate-500 hover:text-[#004D40] hover:bg-slate-100 border-slate-200'
+                                    : 'bg-white/10 text-teal-100 hover:text-[#C5A059] border-white/10 hover:bg-white/20'
                                     }`}
                                 title={t('voiceRecording')}
                             >

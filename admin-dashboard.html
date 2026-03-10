@@ -1,18 +1,18 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ar" dir="rtl">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>لوحة تحكم المسؤول | مساعد الفقيه</title>
-    <meta name="theme-color" content="#0a0e1a">
-    <link rel="icon" type="image/png" href="icon-512.png">
+    <meta name="theme-color" content="#0a0e1a" />
+    <link rel="icon" type="image/png" href="icon-512.png" />
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
     <link
         href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800&family=Tajawal:wght@300;400;500;700;800&display=swap"
-        rel="stylesheet">
+        rel="stylesheet" />
     <style>
         * {
             margin: 0;
@@ -21,14 +21,19 @@
         }
 
         body {
-            font-family: 'Cairo', 'Tajawal', sans-serif;
+            font-family: "Cairo", "Tajawal", sans-serif;
             background: #0a0e1a;
             min-height: 100vh;
             color: #fff;
         }
 
         .bg-gradient-animate {
-            background: linear-gradient(135deg, #0a0e1a 0%, #0d1525 25%, #0f1a2e 50%, #0a1628 75%, #0a0e1a 100%);
+            background: linear-gradient(135deg,
+                    #0a0e1a 0%,
+                    #0d1525 25%,
+                    #0f1a2e 50%,
+                    #0a1628 75%,
+                    #0a0e1a 100%);
             background-size: 400% 400%;
             animation: gradientShift 15s ease infinite;
         }
@@ -37,11 +42,11 @@
 
             0%,
             100% {
-                background-position: 0% 50%
+                background-position: 0% 50%;
             }
 
             50% {
-                background-position: 100% 50%
+                background-position: 100% 50%;
             }
         }
 
@@ -103,7 +108,7 @@
         }
 
         .btn-gold {
-            background: linear-gradient(135deg, #C5A059, #d4b06a);
+            background: linear-gradient(135deg, #c5a059, #d4b06a);
             color: #0a0e1a;
             font-weight: 700;
             transition: all 0.3s ease;
@@ -159,7 +164,9 @@
         }
 
         .cost-highlight {
-            background: linear-gradient(135deg, rgba(197, 160, 89, 0.1), rgba(197, 160, 89, 0.05));
+            background: linear-gradient(135deg,
+                    rgba(197, 160, 89, 0.1),
+                    rgba(197, 160, 89, 0.05));
             border: 1px solid rgba(197, 160, 89, 0.2);
         }
 
@@ -194,7 +201,7 @@
 
         .loading-spinner {
             border: 3px solid rgba(255, 255, 255, 0.1);
-            border-top: 3px solid #C5A059;
+            border-top: 3px solid #c5a059;
             border-radius: 50%;
             width: 40px;
             height: 40px;
@@ -257,6 +264,16 @@
             });
         }
 
+        // Delete a specific doc from a collection
+        function deleteCacheDoc(id) {
+            return db.collection('answerCache').doc(id).delete();
+        }
+
+        // Update a specific cache doc
+        function updateCacheDoc(id, data) {
+            return db.collection('answerCache').doc(id).update(data);
+        }
+
         // Delete all docs in a collection
         function clearCollection(name) {
             return db.collection(name).get().then(function (snap) {
@@ -310,6 +327,8 @@
             const [feedback, setFeedback] = useState([]);
             const [cacheData, setCacheData] = useState({});
             const [showResetModal, setShowResetModal] = useState(false);
+            const [showEditCacheModal, setShowEditCacheModal] = useState(false);
+            const [editingCacheEntry, setEditingCacheEntry] = useState(null);
             const [activeTab, setActiveTab] = useState('overview');
             const [selectedUserId, setSelectedUserId] = useState(null);
 
@@ -402,6 +421,42 @@
             function handleLogout() {
                 sessionStorage.removeItem('admin_auth');
                 window.location.href = '/admin.html';
+            }
+
+            function handleDeleteCacheEntry(key) {
+                if (confirm('هل أنت متأكد من حذف هذا السؤال من الكاش؟')) {
+                    deleteCacheDoc(key).then(function () {
+                        const newData = { ...cacheData };
+                        delete newData[key];
+                        setCacheData(newData);
+                    }).catch(function (e) {
+                        alert('حدث خطأ أثناء الحذف: ' + e.message);
+                    });
+                }
+            }
+
+            function handleEditCacheEntryClick(key, entry) {
+                setEditingCacheEntry({ key: key, ...entry });
+                setShowEditCacheModal(true);
+            }
+
+            function handleSaveEditCacheEntry(e) {
+                e.preventDefault();
+                const key = editingCacheEntry.key;
+                const updatedData = {
+                    question: editingCacheEntry.question,
+                    answer: editingCacheEntry.answer
+                };
+
+                updateCacheDoc(key, updatedData).then(function () {
+                    const newData = { ...cacheData };
+                    newData[key] = { ...newData[key], ...updatedData };
+                    setCacheData(newData);
+                    setShowEditCacheModal(false);
+                    setEditingCacheEntry(null);
+                }).catch(function (err) {
+                    alert('حدث خطأ أثناء الحفظ: ' + err.message);
+                });
             }
 
             if (!isAuth) return null;
@@ -670,17 +725,22 @@
                                         h('th', { className: 'text-right p-3 font-medium' }, 'الوضع'),
                                         h('th', { className: 'text-right p-3 font-medium' }, 'الإصابات'),
                                         h('th', { className: 'text-right p-3 font-medium' }, 'توكنات/إصابة'),
-                                        h('th', { className: 'text-right p-3 font-medium' }, 'تاريخ')
+                                        h('th', { className: 'text-right p-3 font-medium' }, 'تاريخ'),
+                                        h('th', { className: 'text-center p-3 font-medium' }, 'إجراءات')
                                     )),
                                     h('tbody', null,
                                         Object.entries(cacheData).sort(function (a, b) { return (b[1].hitCount || 0) - (a[1].hitCount || 0); }).map(function (pair) {
                                             var key = pair[0], entry = pair[1];
                                             return h('tr', { key: key, className: 'table-row' },
-                                                h('td', { className: 'p-3 max-w-xs' }, h('span', { className: 'text-white/70 text-xs block truncate' }, entry.question || '—')),
+                                                h('td', { className: 'p-3 max-w-xs' }, h('span', { className: 'text-white/70 text-xs block truncate', title: entry.question }, entry.question || '—')),
                                                 h('td', { className: 'p-3' }, h('span', { className: 'badge', style: { background: 'rgba(34,197,94,0.15)', color: '#4ade80', border: '1px solid rgba(34,197,94,0.3)' } }, entry.mode === 'MODE_LITERAL' ? 'حرفي' : 'فهم')),
                                                 h('td', { className: 'p-3 font-bold text-yellow-400' }, String(entry.hitCount || 0)),
                                                 h('td', { className: 'p-3 text-purple-400' }, formatNumber((entry.inputTokens || 0) + (entry.outputTokens || 0))),
-                                                h('td', { className: 'p-3 text-white/40 text-xs' }, formatDate(entry.cachedAt))
+                                                h('td', { className: 'p-3 text-white/40 text-xs' }, formatDate(entry.cachedAt)),
+                                                h('td', { className: 'p-3 text-center flex justify-center gap-2' },
+                                                    h('button', { onClick: function () { handleEditCacheEntryClick(key, entry); }, className: 'text-blue-400 hover:text-blue-300 transition-colors p-1', title: 'تعديل' }, '✏️'),
+                                                    h('button', { onClick: function () { handleDeleteCacheEntry(key); }, className: 'text-red-400 hover:text-red-300 transition-colors p-1', title: 'حذف' }, '🗑️')
+                                                )
                                             );
                                         })
                                     )
@@ -718,14 +778,37 @@
                     )
                 ),
 
-                // Reset Modal
-                showResetModal && h('div', { className: 'modal-overlay', onClick: function () { setShowResetModal(false); } },
-                    h('div', { className: 'modal-card', onClick: function (e) { e.stopPropagation(); } },
-                        h('h3', { className: 'text-lg font-bold text-white mb-2' }, 'تأكيد التصفير'),
-                        h('p', { className: 'text-white/50 text-sm mb-6' }, 'هل أنت متأكد من حذف بيانات التوكنات والتقييمات والكاش؟ لا يمكن التراجع.'),
-                        h('div', { className: 'flex gap-3' },
-                            h('button', { onClick: handleReset, className: 'flex-1 py-2.5 rounded-xl bg-red-500/20 border border-red-500/30 text-red-400 font-bold text-sm hover:bg-red-500/30 transition-all tab-btn' }, 'نعم، تصفير'),
-                            h('button', { onClick: function () { setShowResetModal(false); }, className: 'flex-1 py-2.5 rounded-xl glass-card text-white/60 font-medium text-sm hover:text-white transition-all tab-btn' }, 'إلغاء')
+                // Edit Cache Modal
+                showEditCacheModal && editingCacheEntry && h('div', { className: 'modal-overlay', onClick: function () { setShowEditCacheModal(false); } },
+                    h('div', { className: 'modal-card', style: { maxWidth: '600px', width: '95%' }, onClick: function (e) { e.stopPropagation(); } },
+                        h('h3', { className: 'text-lg font-bold text-white mb-4' }, 'تعديل الإجابة المخزنة (الكاش)'),
+                        h('form', { onSubmit: handleSaveEditCacheEntry, className: 'space-y-4' },
+                            h('div', null,
+                                h('label', { className: 'block text-white/60 text-sm mb-1' }, 'السؤال:'),
+                                h('textarea', {
+                                    value: editingCacheEntry.question,
+                                    onChange: function (e) { setEditingCacheEntry({ ...editingCacheEntry, question: e.target.value }); },
+                                    className: 'w-full bg-[#0a0e1a] border border-white/10 rounded-xl p-3 text-white text-sm focus:border-[#C5A059] focus:outline-none transition-colors',
+                                    rows: 2,
+                                    required: true,
+                                    dir: 'rtl'
+                                })
+                            ),
+                            h('div', null,
+                                h('label', { className: 'block text-white/60 text-sm mb-1' }, 'الإجابة:'),
+                                h('textarea', {
+                                    value: editingCacheEntry.answer,
+                                    onChange: function (e) { setEditingCacheEntry({ ...editingCacheEntry, answer: e.target.value }); },
+                                    className: 'w-full bg-[#0a0e1a] border border-white/10 rounded-xl p-3 text-white text-sm focus:border-[#C5A059] focus:outline-none transition-colors',
+                                    rows: 8,
+                                    required: true,
+                                    dir: 'rtl'
+                                })
+                            ),
+                            h('div', { className: 'flex justify-end gap-3 pt-2' },
+                                h('button', { type: 'button', onClick: function () { setShowEditCacheModal(false); }, className: 'px-4 py-2 rounded-xl glass-card text-white/60 font-medium text-sm hover:text-white transition-all tab-btn' }, 'إلغاء'),
+                                h('button', { type: 'submit', className: 'px-4 py-2 rounded-xl text-white font-medium text-sm transition-all tab-btn bg-blue-600 hover:bg-blue-500' }, 'حفظ التغييرات')
+                            )
                         )
                     )
                 )

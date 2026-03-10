@@ -186,6 +186,50 @@
             -ms-overflow-style: none;
             scrollbar-width: none;
         }
+
+        /* Dark Mode Overrides */
+        html.dark body {
+            background-color: #002b26;
+            color: #e0d5c1;
+        }
+
+        html.dark .markdown-body {
+            color: #e0d5c1;
+        }
+
+        html.dark .markdown-body strong {
+            color: #C5A059;
+        }
+
+        html.dark .markdown-body h1,
+        html.dark .markdown-body h2,
+        html.dark .markdown-body h3 {
+            color: #e0d5c1;
+        }
+
+        html.dark .markdown-body blockquote {
+            background: linear-gradient(135deg, #1a2e2a 0%, #1e3a34 100%);
+            color: #c5d5d0;
+            border-right-color: #C5A059;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        html.dark .markdown-body code {
+            background-color: #1a2e2a;
+            color: #C5A059;
+        }
+
+        html.dark ::-webkit-scrollbar-track {
+            background: #141a1f;
+        }
+
+        html.dark ::-webkit-scrollbar-thumb {
+            background: #3a4a45;
+        }
+
+        html.dark ::-webkit-scrollbar-thumb:hover {
+            background: #C5A059;
+        }
     </style>
     <script type="importmap">
 {
