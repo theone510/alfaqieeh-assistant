@@ -314,7 +314,7 @@
         const formatCost = (cost) => '$' + cost.toFixed(4);
         const formatDate = (ts) => new Date(ts).toLocaleDateString('ar-IQ', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
         const calcCost = (inputTokens, outputTokens, model) => {
-            const pricing = MODEL_PRICING[model] || MODEL_PRICING['gemini-3.1-flash-lite-preview'];
+            const pricing = MODEL_PRICING[model] || MODEL_PRICING['gemini-3-flash-preview'];
             return (inputTokens / 1000000) * pricing.input + (outputTokens / 1000000) * pricing.output;
         };
 
@@ -392,7 +392,7 @@
                 var cacheLogs = logs.filter(function (l) { return l.type === 'cache_hit'; });
                 var inputSaved = cacheLogs.reduce(function (s, l) { return s + (l.inputTokensSaved || 0); }, 0);
                 var outputSaved = cacheLogs.reduce(function (s, l) { return s + (l.outputTokensSaved || 0); }, 0);
-                var costSaved = calcCost(inputSaved, outputSaved, 'gemini-3.1-flash-lite-preview');
+                var costSaved = calcCost(inputSaved, outputSaved, 'gemini-3-flash-preview');
                 return { totalCached: totalCached, totalHits: totalHits, inputSaved: inputSaved, outputSaved: outputSaved, costSaved: costSaved };
             }, [cacheData, logs]);
 
@@ -756,13 +756,13 @@
                         h('div', { className: 'grid grid-cols-1 md:grid-cols-2 gap-4' },
                             Object.entries(MODEL_PRICING).map(function (pair) {
                                 var key = pair[0], model = pair[1];
-                                var isHighlighted = key === 'gemini-3.1-flash-lite-preview';
+                                var isHighlighted = key === 'gemini-3-flash-preview';
                                 var isActiveLiteral = false;
                                 var isActiveUnderstanding = false;
                                 return h('div', { key: key, className: 'rounded-xl p-5 transition-all ' + (isHighlighted ? 'cost-highlight' : 'stat-card') },
                                     h('div', { className: 'flex items-center justify-between mb-4' },
                                         h('h4', { className: 'text-base font-bold ' + (isHighlighted ? 'text-[#C5A059]' : 'text-white/80') }, model.label),
-                                        key === 'gemini-3.1-flash-lite-preview' && h('span', { className: 'badge', style: { background: 'rgba(197, 160, 89, 0.15)', color: '#C5A059', border: '1px solid rgba(197, 160, 89, 0.3)' } }, '● الموديل النشط')
+                                        key === 'gemini-3-flash-preview' && h('span', { className: 'badge', style: { background: 'rgba(197, 160, 89, 0.15)', color: '#C5A059', border: '1px solid rgba(197, 160, 89, 0.3)' } }, '● الموديل النشط')
                                     ),
                                     h('div', { className: 'grid grid-cols-2 gap-4' },
                                         h('div', null, h('p', { className: 'text-white/40 text-xs mb-1' }, 'تكلفة الإدخال'), h('p', { className: 'text-xl font-bold text-blue-400' }, '$' + model.input), h('p', { className: 'text-white/30 text-xs mt-0.5' }, '/ مليون توكن')),
