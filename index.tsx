@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { BookOpen, MessageCircle, Info, Send, Eraser, User, Bot, AlertCircle, Settings, FileText, Scroll, ArrowRight, CheckCircle2, History, Plus, Trash2, MessageSquare, Mic, StopCircle, Download, Menu, X, Globe, Copy, ThumbsUp, ThumbsDown, LogOut, Phone, Lock, Briefcase, UserPlus, LogIn, Moon, Sun } from 'lucide-react';
+import { BookOpen, MessageCircle, Info, Send, Eraser, User, Bot, AlertCircle, Settings, FileText, Scroll, ArrowRight, CheckCircle2, History, Plus, Trash2, MessageSquare, Mic, StopCircle, Download, Menu, X, Globe, Copy, ThumbsUp, ThumbsDown, LogOut, Phone, Lock, Briefcase, UserPlus, LogIn, Moon, Sun, Clock } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import {
     getSessions as getSessionsFromDb, saveSession as saveSessionToDb, deleteSessionFromDb,
@@ -129,6 +129,7 @@ const SYSTEM_INSTRUCTION = `
 type Message = {
     role: 'user' | 'model';
     text: string;
+    duration?: number;
 };
 
 type Mode = 'MODE_LITERAL' | 'MODE_UNDERSTANDING';
@@ -987,6 +988,7 @@ ${t('welcomeAsk')}`
             setInput('');
         }
         setIsLoading(true);
+        const startTime = performance.now();
         setLoadingStep(0);
         console.log("handleSend proceeding", { userMessageText });
 
@@ -1174,7 +1176,10 @@ ${t('welcomeAsk')}`
                 logTokenUsage(translateBackResponse, sessionId!, 'translation_back', activeModelName);
             }
 
-            const modelMessage: Message = { role: 'model', text };
+            const endTime = performance.now();
+            const duration = parseFloat(((endTime - startTime) / 1000).toFixed(1));
+
+            const modelMessage: Message = { role: 'model', text, duration };
 
             // Update messages with AI response
             const finalMessages = [...updatedMessages, modelMessage];
@@ -1663,6 +1668,12 @@ ${t('welcomeAsk')}`
                                                 </>
                                             );
                                         })()}
+                                        {msg.duration && (
+                                            <div className={`mr-2 flex items-center gap-1 ${isRTL ? 'mr-auto' : 'ml-auto'} px-2 py-0.5 rounded-full text-[10px] ${darkMode ? 'bg-white/5 text-gray-400 border border-white/10' : 'bg-slate-50 text-slate-400 border border-slate-100'}`}>
+                                                <Clock className="w-2.5 h-2.5" />
+                                                <span>{msg.duration}s</span>
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                             </div>
